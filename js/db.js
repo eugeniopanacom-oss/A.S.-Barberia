@@ -1,0 +1,73 @@
+// Configurá tu proyecto Firebase gratis
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  appId: "1:xxx:web:xxx"
+};
+firebase.initializeApp(firebaseConfig);
+
+// URL del Google Apps Script (paso 4)
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzbb2e62i1842uwM-gSb_3tWsnjenWS6-o4qrj_2C6IuhVDeY9FXav5EopPrPKmbZWdPQ/exec';
+
+// IndexedDB local para offline
+const dbName = 'asDB';
+const storeName = 'bookings';
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(dbName, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// Guardar turno localmente y después intentar enviar al sheet
+async function saveBooking(data) {
+  const db = await openDB();
+  const tx = db.transaction(storeName, 'readwrite');
+  tx.objectStore(storeName).add(data);
+  await tx.complete;
+  // Intentar sync
+  syncBookings();
+}
+
+// Sync con Google Sheets
+async function syncBookings() {
+  const db = await openDB();
+  const tx = db.transaction(storeName, 'readonly');
+  const all = await tx.objectStore(storeName).getAll();
+  if (!all.length) return;
+  try {
+    await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({bookings: all})});
+    // Si llegó, borramos local
+    const tx2 = db.transaction(storeName, 'readwrite');
+    all.forEach(b => tx2.objectStore(storeName).delete(b.id));
+    await tx2.complete;
+  } catch (e) {
+    console.warn('Sync falló, se reintenta más tarde');
+  }
+}
+
+// Cargar servicios y precios (desde sheet)
+async function loadServices() {
+  const res = await fetch(GAS_URL + '?action=getServices');
+  return res.json();
+}
+
+// Cargar métricas
+async function loadMetrics() {
+  const res = await fetch(GAS_URL + '?action=metrics');
+  return res.json();
+}
+
+// Publicar oferta
+async function postOffer(text) {
+  await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: 'offer', text})});
+}
+
+// Guardar precio
+async function savePrice(name, price) {
+  await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: 'price', name, price})});
+}
