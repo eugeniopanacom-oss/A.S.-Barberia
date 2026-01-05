@@ -8,7 +8,7 @@ firebase.auth().onAuthStateChanged(user => {
     loginBtn.hidden = true;
     logoutBtn.hidden = false;
     // Si el mail está en la lista de admin, mostramos panel
-    const admins = ['eugeniopanacom@gmail.com']; // agregá los que quieras
+    const admins = ["eugeniopanacom@gmail.com"]; // agregá los que quieras
     if (admins.includes(user.email)) {
       adminSection.hidden = false;
       userSection.hidden = true;
