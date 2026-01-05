@@ -8,7 +8,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // URL del Google Apps Script (paso 4)
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyJI0LtWqAUfASJ4E_3SuuftO1K5TFmh0SQ6SL__cOPOjae67Y1s75xot1D3wLxxLZSQg/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxKD32VAizTHM9ErggXnBrnkn9xyWWlwB_KID6aXqqLdiya2F6tLOdrXBlGXBqKWIe_qQ/exec';
 
 // IndexedDB local para offline
 const dbName = 'asDB';
