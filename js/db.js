@@ -1,9 +1,9 @@
 // Configurá tu proyecto Firebase gratis
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  appId: "1:xxx:web:xxx"
+  apiKey: "AIzaSyDaevmlZwskjQQhQfGOpFriPNwg4Kx2OeE",
+  authDomain: "as-barber2.firebaseapp.com",
+  projectId: "as-barber2",
+  appId: "1:438163815866:web:6b18d7746e8c7874693183"
 };
 firebase.initializeApp(firebaseConfig);
 
