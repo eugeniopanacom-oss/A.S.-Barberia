@@ -1,5 +1,5 @@
 // ========== SUPABASE CONFIG ==========
-const SUPA_URL = 'https://as-barber.supabase.co';
+const SUPA_URL = 'https://athjkugyucogikjlwxbz.supabase.co';
 const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv'; // TU ANON KEY
 const GAS_URL = `${SUPA_URL}/rest/v1`;
 
