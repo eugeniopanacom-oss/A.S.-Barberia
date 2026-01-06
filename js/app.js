@@ -48,8 +48,8 @@ form.onsubmit = async (e) => {
     service: serviceSel.value,
     date: dateInput.value,
     time: timeSel.value,
-    price: price,
-    created: new Date().toISOString()
+    price: price
+    // ⬅️ SIN 'created' - la tabla usa 'created_at' automático
   };
   
   console.log('📤 Turno a guardar:', bookingData);
