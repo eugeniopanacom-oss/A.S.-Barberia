@@ -40,6 +40,7 @@ form.onsubmit = async (e) => {
     price: serviceSel.selectedOptions[0].text.split('$')[1],
     created: new Date().toISOString()
   };
+  console.log('Turno a guardar:', data);   // ← debug para ver qué fecha/hora se envía
   await saveBooking(data);
   msg.textContent = '¡Turno reservado!';
   form.reset();
