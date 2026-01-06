@@ -1,6 +1,6 @@
 // ========== SUPABASE CONFIG ==========
 const SUPA_URL = 'https://athjkugyucogikjlwxbz.supabase.co';
-const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv'; // ⬅️ CAMBIA A PUBLISHABLE
+const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv';
 const GAS_URL = `${SUPA_URL}/rest/v1`;
 
 // ========== FIREBASE (AUTH) ==========
@@ -70,7 +70,8 @@ async function saveBooking(data) {
       method: 'POST',
       headers: { 
         apikey: SUPA_KEY,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
       },
       body: JSON.stringify(data)
     });
@@ -78,9 +79,17 @@ async function saveBooking(data) {
     console.log('📡 Status:', response.status);
     
     if (response.ok) {
-      const result = await response.json();
-      console.log('✅ Guardado en Supabase:', result);
-      return result;
+      // Verificar si la respuesta tiene contenido JSON
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        console.log('✅ Guardado en Supabase:', result);
+        return result;
+      } else {
+        // Respuesta exitosa pero vacía
+        console.log('✅ Guardado en Supabase (respuesta vacía)');
+        return { success: true, status: response.status, data: data };
+      }
     } else {
       const errorText = await response.text();
       console.warn('⚠️ Supabase falló:', errorText);
@@ -119,7 +128,11 @@ async function syncBookings() {
     try {
       await fetch(`${GAS_URL}/bookings`, {
         method: 'POST',
-        headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+        headers: { 
+          apikey: SUPA_KEY, 
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
         body: JSON.stringify(b)
       });
       // Si éxito, borrar
