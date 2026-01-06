@@ -1,73 +1,56 @@
-// Configurá tu proyecto Firebase gratis
-const firebaseConfig = {
-  apiKey: "AIzaSyDaevmlZwskjQQhQfGOpFriPNwg4Kx2OeE",
-  authDomain: "as-barber2.firebaseapp.com",
-  projectId: "as-barber2",
-  appId: "1:438163815866:web:6b18d7746e8c7874693183"
-};
-firebase.initializeApp(firebaseConfig);
+// ========== SUPABASE CONFIG ==========
+const SUPA_URL = 'https://as-barber.supabase.co';        // tu Project URL
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // tu Anon Key
+const GAS_URL = `${SUPA_URL}/rest/v1`;                   // usamos REST de Supabase
 
-// URL del Google Apps Script (paso 4)
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzCy0l4ZNthWVdiRAxyJvXw2BfXj77NS24v2aXGgOA5G5bGxBztYRe5z-7YZaW4UKmcEQ/exec';
+// ========== HEADERS CORS YA VIENEN ==========
+async function loadServices() {
+  const res = await fetch(`${GAS_URL}/services?select=*&order=id`, {
+    headers: { apikey: SUPA_KEY }
+  });
+  return res.json();
+}
 
-// IndexedDB local para offline
-const dbName = 'asDB';
-const storeName = 'bookings';
+async function loadMetrics() {
+  const bookings = await fetch(`${GAS_URL}/bookings?select=price`, {
+    headers: { apikey: SUPA_KEY }
+  }).then(r => r.json());
+  const total = bookings.reduce((s, b) => s + (b.price || 0), 0);
+  const count = bookings.length;
+  const avg   = count ? (total / count).toFixed(2) : 0;
+  return { total, count, avg, peak: '14:00' }; // hora pico hard por ahora
+}
 
-function openDB() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(dbName, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
+async function postOffer(text) {
+  await fetch(`${GAS_URL}/offers`, {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
   });
 }
 
-// Guardar turno localmente y después intentar enviar al sheet
-async function saveBooking(data) {
-  const db = await openDB();
-  const tx = db.transaction(storeName, 'readwrite');
-  tx.objectStore(storeName).add(data);
-  await tx.complete;
-  // Intentar sync
-  syncBookings();
+async function savePrice(name, price) {
+  await fetch(`${GAS_URL}/services', {
+    method: 'POST',
+    headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, price })
+  });
 }
 
-// Sync con Google Sheets
+// ---------- sync local → Supabase ----------
 async function syncBookings() {
   const db = await openDB();
-  const tx = db.transaction(storeName, 'readonly');
-  const all = await tx.objectStore(storeName).getAll();
+  const all = await db.transaction('bookings').objectStore('bookings').getAll();
   if (!all.length) return;
-  try {
-    await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({bookings: all})});
-    // Si llegó, borramos local
-    const tx2 = db.transaction(storeName, 'readwrite');
-    all.forEach(b => tx2.objectStore(storeName).delete(b.id));
-    await tx2.complete;
-  } catch (e) {
-    console.warn('Sync falló, se reintenta más tarde');
+  for (const b of all) {
+    await fetch(`${GAS_URL}/bookings`, {
+      method: 'POST',
+      headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(b)
+    });
   }
-}
-
-// Cargar servicios y precios (desde sheet)
-async function loadServices() {
-  const res = await fetch(GAS_URL + '?action=getServices');
-  return res.json();
-}
-
-// Cargar métricas
-async function loadMetrics() {
-  const res = await fetch(GAS_URL + '?action=metrics');
-  return res.json();
-}
-
-// Publicar oferta
-async function postOffer(text) {
-  await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: 'offer', text})});
-}
-
-// Guardar precio
-async function savePrice(name, price) {
-  await fetch(GAS_URL, {method: 'POST', body: JSON.stringify({action: 'price', name, price})});
+  // borramos local
+  const tx = db.transaction('bookings', 'readwrite');
+  all.forEach(b => tx.objectStore('bookings').delete(b.id));
+  await tx.complete;
 }
