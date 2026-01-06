@@ -41,7 +41,29 @@ form.onsubmit = async (e) => {
     created: new Date().toISOString()
   };
   console.log('Turno a guardar:', data);   // ← debug para ver qué fecha/hora se envía
-  await saveBooking(data);
+  // AGREGADO
+if (typeof saveBooking !== 'undefined') {
+  console.log('📤 Llamando a saveBooking...');
+  saveBooking(bookingData)
+    .then(() => console.log('✅ saveBooking completado'))
+    .catch(err => console.error('❌ Error:', err));
+} else {
+  console.error('❌ ERROR: saveBooking no está definida');
+  console.log('Usando fetch directo como fallback...');
+  
+  // Fallback directo
+  fetch(`${GAS_URL}/bookings`, {
+    method: 'POST',
+    headers: { 
+      apikey: SUPA_KEY, 
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(bookingData)
+  })
+  .then(res => res.json())
+  .then(data => console.log('✅ Enviado via fetch:', data))
+  .catch(err => console.error('❌ Error fetch:', err));
+}
   msg.textContent = '¡Turno reservado!';
   form.reset();
 };

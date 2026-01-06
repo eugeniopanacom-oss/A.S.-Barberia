@@ -84,3 +84,17 @@ async function syncBookings() {
   all.forEach(b => tx.objectStore(storeName).delete(b.id));
   await tx.complete;
 }
+
+// ========== DEBUG ==========
+console.log('🔍 DEBUG db.js:');
+console.log('- SUPA_URL:', SUPA_URL);
+console.log('- GAS_URL:', GAS_URL);
+console.log('- saveBooking definida?', typeof saveBooking);
+console.log('- Función disponible globalmente?', window.saveBooking ? '✅' : '❌');
+
+// Forzar que saveBooking esté disponible globalmente
+window.saveBooking = saveBooking;
+window.openDB = openDB;
+window.syncBookings = syncBookings;
+
+console.log('✅ Funciones expuestas globalmente');
