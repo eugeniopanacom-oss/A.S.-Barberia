@@ -1,6 +1,6 @@
 // ========== SUPABASE CONFIG ==========
-const SUPA_URL = 'https://as-barber.supabase.co';        // tu Project URL
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // tu Anon Key
+const SUPA_URL = 'https://athjkugyucogikjlwxbz.supabase.co'        // tu Project URL
+const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv'; // tu Anon Key
 const GAS_URL = `${SUPA_URL}/rest/v1`;                   // usamos REST de Supabase
 
 // ========== HEADERS CORS YA VIENEN ==========
