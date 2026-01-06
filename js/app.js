@@ -40,30 +40,69 @@ form.onsubmit = async (e) => {
     price: serviceSel.selectedOptions[0].text.split('$')[1],
     created: new Date().toISOString()
   };
-  console.log('Turno a guardar:', data);   // ← debug para ver qué fecha/hora se envía
-  // AGREGADO
-if (typeof saveBooking !== 'undefined') {
-  console.log('📤 Llamando a saveBooking...');
-  saveBooking(bookingData)
-    .then(() => console.log('✅ saveBooking completado'))
-    .catch(err => console.error('❌ Error:', err));
-} else {
-  console.error('❌ ERROR: saveBooking no está definida');
-  console.log('Usando fetch directo como fallback...');
+  console.log('Turno a guardar:', data);
+
+  try {
+    if (typeof saveBooking !== 'undefined') {
+     // CORRECCIÓN en app.js:
+document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
   
-  // Fallback directo
-  fetch(`${GAS_URL}/bookings`, {
-    method: 'POST',
-    headers: { 
-      apikey: SUPA_KEY, 
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(bookingData)
-  })
-  .then(res => res.json())
-  .then(data => console.log('✅ Enviado via fetch:', data))
-  .catch(err => console.error('❌ Error fetch:', err));
-}
-  msg.textContent = '¡Turno reservado!';
-  form.reset();
+  console.log('💾 Guardando turno desde formulario...');
+  
+  // OBTENER los valores del formulario
+  const bookingData = {
+    name: document.getElementById('name')?.value || '',
+    email: document.getElementById('email')?.value || '',
+    service: document.getElementById('service')?.value || '',
+    date: document.getElementById('date')?.value || '',
+    time: document.getElementById('time')?.value || '',
+    price: parseInt(document.getElementById('price')?.value) || 0,
+    uid: firebase.auth().currentUser?.uid || 'guest'
+  };
+  
+  console.log('📦 Datos del formulario:', bookingData);
+  
+  // Validar campos obligatorios
+  if (!bookingData.name || !bookingData.email || !bookingData.service) {
+    alert('Por favor, completa todos los campos');
+    return;
+  }
+  
+  // Guardar
+  try {
+    await saveBooking(bookingData);
+    console.log('✅ Turno guardado exitosamente');
+    alert('¡Turno reservado con éxito!');
+    
+    // Limpiar formulario (opcional)
+    this.reset();
+  } catch (error) {
+    console.error('❌ Error al guardar:', error);
+    alert('Error al reservar turno: ' + error.message);
+  }
+});
+      await saveBooking(data);
+      console.log('✅ saveBooking completado');
+    } else {
+      console.error('❌ ERROR: saveBooking no está definida');
+      console.log('Usando fetch directo como fallback...');
+      
+      const response = await fetch(`${GAS_URL}/bookings`, {
+        method: 'POST',
+        headers: { 
+          apikey: SUPA_KEY, 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      console.log('✅ Enviado via fetch:', result);
+    }
+    msg.textContent = '¡Turno reservado!';
+    form.reset();
+  } catch (error) {
+    console.error('❌ Error:', error);
+    alert('Error al reservar turno: ' + error.message);
+  }
 };
