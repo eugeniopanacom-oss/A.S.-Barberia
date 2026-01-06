@@ -7,7 +7,7 @@ const priceForm = document.getElementById('priceForm');
 loadBtn.onclick = async () => {
   try {
     // ---------- métricas y turnos de HOY ----------
-    const today = new Date().toISOString().slice(0, 10);
+    const today = '2026-01-06'; // ← fecha en la que hiciste los turnos
 
     // métricas
     const todayBookings = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=price`, {
