@@ -1,3 +1,11 @@
+console.log('✅ admin.js cargado - Funciones de admin listas');
+
+// Si encuentras una función saveBooking, modifícala:
+const saveBooking = async (bookingData) => {
+  console.log('🔴 SAVEBOOKING EJECUTADA');
+  console.log('Datos:', bookingData);
+  // ... resto del código
+};
 const loadBtn = document.getElementById('loadMetrics');
 const metricsDiv = document.getElementById('metrics');
 const todayList = document.getElementById('todayList');

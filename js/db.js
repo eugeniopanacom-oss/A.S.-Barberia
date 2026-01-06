@@ -83,4 +83,6 @@ async function syncBookings() {
   const tx = db.transaction(storeName, 'readwrite');
   all.forEach(b => tx.objectStore(storeName).delete(b.id));
   await tx.complete;
+
+  console.log('✅ db.js cargado - Supabase configurado');
 }
