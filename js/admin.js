@@ -6,6 +6,7 @@ const priceForm = document.getElementById('priceForm');
 
 loadBtn.onclick = async () => {
   try {
+    // ---------- métricas ----------
     const m = await loadMetrics();
     metricsDiv.innerHTML = `
       <p>Recaudación total: $${m.total}</p>
@@ -13,10 +14,17 @@ loadBtn.onclick = async () => {
       <p>Promedio por turno: $${m.avg}</p>
       <p>Hora pico: ${m.peak}</p>
     `;
+
+    // ---------- turnos de hoy ----------
     const today = new Date().toISOString().slice(0, 10);
-    const res = await fetch(`${GAS_URL}?action=today&date=${today}`);
+    const res = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=time,name,service`, {
+      headers: { apikey: SUPA_KEY }
+    });
     const list = await res.json();
-    todayList.innerHTML = list.map(b => `<li>${b.time} - ${b.name} - ${b.service}</li>`).join('');
+
+    // si no hay turnos → array vacío
+    if (!Array.isArray(list)) todayList.innerHTML = '<li>Sin turnos hoy</li>';
+    else todayList.innerHTML = list.map(b => `<li>${b.time} - ${b.name} - ${b.service}</li>`).join('');
   } catch (err) {
     alert('Error al cargar métricas: ' + err.message);
   }
