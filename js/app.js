@@ -42,8 +42,6 @@ form.onsubmit = async (e) => {
   };
   console.log('Turno a guardar:', data);   // ← debug para ver qué fecha/hora se envía
   await saveBooking(data);
-  // Busca donde se llame a saveBooking y agrega:
-  console.log('🟡 Botón de reserva clickeado');
   msg.textContent = '¡Turno reservado!';
   form.reset();
 };
