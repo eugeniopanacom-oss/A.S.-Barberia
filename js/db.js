@@ -60,12 +60,63 @@ function openDB() {
   });
 }
 
+
 async function saveBooking(data) {
-  const db = await openDB();
-  const tx = db.transaction(storeName, 'readwrite');
-  tx.objectStore(storeName).add(data);
-  await tx.complete;
-  syncBookings(); // intentamos enviar a Supabase
+  console.log('💾 saveBooking MEJORADA ejecutando...');
+  
+  // 1. PRIMERO intentar Supabase
+  try {
+    console.log('📡 Intentando Supabase primero...');
+    const response = await fetch(`${GAS_URL}/bookings`, {
+      method: 'POST',
+      headers: { 
+        apikey: SUPA_KEY, 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Guardado DIRECTAMENTE en Supabase:', result);
+      return result; // ¡ÉXITO!
+    }
+    
+    console.warn('⚠️ Supabase falló, guardando offline...');
+    
+  } catch (error) {
+    console.error('❌ Error Supabase:', error);
+  }
+  
+  // 2. Si Supabase falla, guardar en IndexedDB
+  try {
+    const db = await openDB();
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    
+    const bookingWithMeta = {
+      ...data,
+      id: Date.now(),
+      created_at: new Date().toISOString(),
+      status: 'pending_sync'
+    };
+    
+    await store.add(bookingWithMeta);
+    await tx.complete;
+    
+    console.log('💾 Guardado en IndexedDB (offline):', bookingWithMeta);
+    
+    // Intentar sincronizar inmediatamente
+    syncBookings();
+    
+    return bookingWithMeta;
+    
+  } catch (error) {
+    console.error('💥 Error crítico:', error);
+    throw error;
+  }
 }
 
 async function syncBookings() {
