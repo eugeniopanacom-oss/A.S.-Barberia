@@ -5,14 +5,16 @@ const form = document.getElementById('bookingForm');
 const msg = document.getElementById('msg');
 
 // Cargar servicios
-loadServices().then(list => {
-  list.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.name;
-    opt.textContent = `${s.name} – $${s.price}`;
-    serviceSel.appendChild(opt);
-  });
-});
+const data = {
+  uid: user.uid,
+  name: user.displayName,
+  email: user.email,
+  service: serviceSel.value,
+  date: new Date().toISOString().slice(0, 10), // ← solo YYYY-MM-DD
+  time: timeSel.value,
+  price: parseInt(serviceSel.selectedOptions[0].text.split('$')[1]),
+  created: new Date().toISOString()
+};
 
 // Horarios fijos (podes hacerlo dinámico después)
 const hours = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];

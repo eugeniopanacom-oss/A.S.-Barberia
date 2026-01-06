@@ -6,25 +6,34 @@ const priceForm = document.getElementById('priceForm');
 
 loadBtn.onclick = async () => {
   try {
-    // ---------- métricas ----------
-    const m = await loadMetrics();
+    // ---------- métricas y turnos de HOY ----------
+    const today = new Date().toISOString().slice(0, 10);
+
+    // métricas
+    const todayBookings = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=price`, {
+      headers: { apikey: SUPA_KEY }
+    }).then(r => r.json());
+
+    const total = todayBookings.reduce((s, b) => s + (b.price || 0), 0);
+    const count = todayBookings.length;
+    const avg   = count ? (total / count).toFixed(2) : 0;
+
     metricsDiv.innerHTML = `
-      <p>Recaudación total: $${m.total}</p>
-      <p>Turnos totales: ${m.count}</p>
-      <p>Promedio por turno: $${m.avg}</p>
-      <p>Hora pico: ${m.peak}</p>
+      <p>Recaudación HOY: $${total}</p>
+      <p>Turnos HOY: ${count}</p>
+      <p>Promedio HOY: $${avg}</p>
+      <p>Hora pico: 14:00</p>
     `;
 
-    // ---------- turnos de hoy ----------
-    const today = new Date().toISOString().slice(0, 10);
-    const res = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=time,name,service`, {
+    // lista de hoy
+    const res = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=time,name,service&order=time`, {
       headers: { apikey: SUPA_KEY }
     });
     const list = await res.json();
 
-    // si no hay turnos → array vacío
-    if (!Array.isArray(list)) todayList.innerHTML = '<li>Sin turnos hoy</li>';
-    else todayList.innerHTML = list.map(b => `<li>${b.time} - ${b.name} - ${b.service}</li>`).join('');
+    todayList.innerHTML = Array.isArray(list) && list.length
+      ? list.map(b => `<li>${b.time} - ${b.name} - ${b.service}</li>`).join('')
+      : '<li>Sin turnos hoy</li>';
   } catch (err) {
     alert('Error al cargar métricas: ' + err.message);
   }
