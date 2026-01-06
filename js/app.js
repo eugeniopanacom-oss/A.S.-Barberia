@@ -4,7 +4,7 @@ const timeSel = document.getElementById('time');
 const form = document.getElementById('bookingForm');
 const msg = document.getElementById('msg');
 
-// ---------- cargar servicios + horarios ----------
+// ---------- cargar servicios ----------
 loadServices().then(list => {
   list.forEach(s => {
     const opt = document.createElement('option');
@@ -26,83 +26,62 @@ hours.forEach(h => {
 // mínimo hoy
 dateInput.min = new Date().toISOString().split('T')[0];
 
+// ---------- manejar reserva ----------
 form.onsubmit = async (e) => {
   e.preventDefault();
+  
   const user = firebase.auth().currentUser;
-  if (!user) return alert('Primero iniciá sesión');
-  const data = {
-    uid: user.uid,
-    name: user.displayName,
-    email: user.email,
-    service: serviceSel.value,
-    date: dateInput.value,
-    time: timeSel.value,
-    price: serviceSel.selectedOptions[0].text.split('$')[1],
-    created: new Date().toISOString()
-  };
-  console.log('Turno a guardar:', data);
-
-  try {
-    if (typeof saveBooking !== 'undefined') {
-     // CORRECCIÓN en app.js:
-document.getElementById('bookingForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  
-  console.log('💾 Guardando turno desde formulario...');
-  
-  // OBTENER los valores del formulario
-  const bookingData = {
-    name: document.getElementById('name')?.value || '',
-    email: document.getElementById('email')?.value || '',
-    service: document.getElementById('service')?.value || '',
-    date: document.getElementById('date')?.value || '',
-    time: document.getElementById('time')?.value || '',
-    price: parseInt(document.getElementById('price')?.value) || 0,
-    uid: firebase.auth().currentUser?.uid || 'guest'
-  };
-  
-  console.log('📦 Datos del formulario:', bookingData);
-  
-  // Validar campos obligatorios
-  if (!bookingData.name || !bookingData.email || !bookingData.service) {
-    alert('Por favor, completa todos los campos');
+  if (!user) {
+    alert('Primero iniciá sesión');
     return;
   }
   
-  // Guardar
+  // Obtener precio del servicio seleccionado
+  const serviceText = serviceSel.selectedOptions[0]?.text || '';
+  const priceMatch = serviceText.match(/\$(\d+)/);
+  const price = priceMatch ? parseInt(priceMatch[1]) : 0;
+  
+  const bookingData = {
+    uid: user.uid,
+    name: user.displayName || 'Cliente',
+    email: user.email || '',
+    service: serviceSel.value,
+    date: dateInput.value,
+    time: timeSel.value,
+    price: price,
+    created: new Date().toISOString()
+  };
+  
+  console.log('📤 Turno a guardar:', bookingData);
+  
   try {
-    await saveBooking(bookingData);
-    console.log('✅ Turno guardado exitosamente');
-    alert('¡Turno reservado con éxito!');
-    
-    // Limpiar formulario (opcional)
-    this.reset();
-  } catch (error) {
-    console.error('❌ Error al guardar:', error);
-    alert('Error al reservar turno: ' + error.message);
-  }
-});
-      await saveBooking(data);
-      console.log('✅ saveBooking completado');
-    } else {
-      console.error('❌ ERROR: saveBooking no está definida');
-      console.log('Usando fetch directo como fallback...');
-      
-      const response = await fetch(`${GAS_URL}/bookings`, {
-        method: 'POST',
-        headers: { 
-          apikey: SUPA_KEY, 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      const result = await response.json();
-      console.log('✅ Enviado via fetch:', result);
+    // Verificar que saveBooking existe
+    if (typeof saveBooking !== 'function') {
+      throw new Error('saveBooking no está disponible');
     }
-    msg.textContent = '¡Turno reservado!';
+    
+    // Guardar
+    const result = await saveBooking(bookingData);
+    console.log('✅ Resultado:', result);
+    
+    // Mostrar éxito
+    msg.textContent = '¡Turno reservado con éxito!';
+    msg.style.color = 'green';
+    
+    // Limpiar formulario
     form.reset();
+    
+    // Actualizar métricas si existe
+    if (typeof loadMetrics === 'function') {
+      setTimeout(() => loadMetrics(), 1000);
+    }
+    
   } catch (error) {
     console.error('❌ Error:', error);
-    alert('Error al reservar turno: ' + error.message);
+    msg.textContent = 'Error: ' + error.message;
+    msg.style.color = 'red';
+    alert('Error al reservar: ' + error.message);
   }
 };
+
+console.log('✅ app.js cargado - formulario listo');

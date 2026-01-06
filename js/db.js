@@ -1,6 +1,6 @@
 // ========== SUPABASE CONFIG ==========
 const SUPA_URL = 'https://athjkugyucogikjlwxbz.supabase.co';
-const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv'; // TU ANON KEY
+const SUPA_KEY = 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv'; // ⬅️ CAMBIA A PUBLISHABLE
 const GAS_URL = `${SUPA_URL}/rest/v1`;
 
 // ========== FIREBASE (AUTH) ==========
@@ -60,58 +60,49 @@ function openDB() {
   });
 }
 
-
+// ========== SAVEBOOKING FUNCIONAL ==========
 async function saveBooking(data) {
-  console.log('💾 saveBooking MEJORADA ejecutando...');
+  console.log('💾 saveBooking ejecutando...', data);
   
-  // 1. PRIMERO intentar Supabase
   try {
-    console.log('📡 Intentando Supabase primero...');
+    // Intentar Supabase directamente
     const response = await fetch(`${GAS_URL}/bookings`, {
       method: 'POST',
       headers: { 
-        apikey: SUPA_KEY, 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPA_KEY}`,
-        'Prefer': 'return=representation'
+        apikey: SUPA_KEY,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(data)
     });
     
+    console.log('📡 Status:', response.status);
+    
     if (response.ok) {
       const result = await response.json();
-      console.log('✅ Guardado DIRECTAMENTE en Supabase:', result);
-      return result; // ¡ÉXITO!
+      console.log('✅ Guardado en Supabase:', result);
+      return result;
+    } else {
+      const errorText = await response.text();
+      console.warn('⚠️ Supabase falló:', errorText);
+      
+      // Fallback a IndexedDB
+      const db = await openDB();
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      
+      const bookingWithMeta = {
+        ...data,
+        id: Date.now(),
+        created_at: new Date().toISOString(),
+        status: 'pending_sync'
+      };
+      
+      await store.add(bookingWithMeta);
+      await tx.complete;
+      
+      console.log('💾 Guardado en IndexedDB:', bookingWithMeta);
+      return bookingWithMeta;
     }
-    
-    console.warn('⚠️ Supabase falló, guardando offline...');
-    
-  } catch (error) {
-    console.error('❌ Error Supabase:', error);
-  }
-  
-  // 2. Si Supabase falla, guardar en IndexedDB
-  try {
-    const db = await openDB();
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    
-    const bookingWithMeta = {
-      ...data,
-      id: Date.now(),
-      created_at: new Date().toISOString(),
-      status: 'pending_sync'
-    };
-    
-    await store.add(bookingWithMeta);
-    await tx.complete;
-    
-    console.log('💾 Guardado en IndexedDB (offline):', bookingWithMeta);
-    
-    // Intentar sincronizar inmediatamente
-    syncBookings();
-    
-    return bookingWithMeta;
     
   } catch (error) {
     console.error('💥 Error crítico:', error);
@@ -123,29 +114,26 @@ async function syncBookings() {
   const db = await openDB();
   const all = await db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
   if (!all.length) return;
+  
   for (const b of all) {
-    await fetch(`${GAS_URL}/bookings`, {
-      method: 'POST',
-      headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(b)
-    });
+    try {
+      await fetch(`${GAS_URL}/bookings`, {
+        method: 'POST',
+        headers: { apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(b)
+      });
+      // Si éxito, borrar
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).delete(b.id);
+    } catch (e) {
+      console.warn('No se pudo sincronizar:', b.id);
+    }
   }
-  // borramos local
-  const tx = db.transaction(storeName, 'readwrite');
-  all.forEach(b => tx.objectStore(storeName).delete(b.id));
-  await tx.complete;
 }
 
-// ========== DEBUG ==========
-console.log('🔍 DEBUG db.js:');
-console.log('- SUPA_URL:', SUPA_URL);
-console.log('- GAS_URL:', GAS_URL);
-console.log('- saveBooking definida?', typeof saveBooking);
-console.log('- Función disponible globalmente?', window.saveBooking ? '✅' : '❌');
-
-// Forzar que saveBooking esté disponible globalmente
+// ========== EXPORTAR ==========
 window.saveBooking = saveBooking;
-window.openDB = openDB;
-window.syncBookings = syncBookings;
+window.loadServices = loadServices;
+window.loadMetrics = loadMetrics;
 
-console.log('✅ Funciones expuestas globalmente');
+console.log('✅ db.js cargado - saveBooking lista');
