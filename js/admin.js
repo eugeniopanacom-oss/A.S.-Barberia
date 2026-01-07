@@ -4,6 +4,75 @@ const todayList = document.getElementById('todayList');
 const offerForm = document.getElementById('offerForm');
 const priceForm = document.getElementById('priceForm');
 
+// Crear campos adicionales para ofertas si no existen
+function enhanceOfferForm() {
+  if (!offerForm) return;
+  
+  // Si ya tiene los campos extras, no hacer nada
+  if (document.getElementById('offerPrice')) return;
+  
+  // Agregar campos adicionales
+  offerForm.innerHTML = `
+    <h3>Publicar Nueva Oferta</h3>
+    <input type="text" id="offerText" placeholder="Título de la oferta (ej: Corte + Barba)" required style="
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    ">
+    
+    <input type="number" id="offerPrice" placeholder="Precio especial $" style="
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    ">
+    
+    <textarea id="offerDescription" placeholder="Descripción detallada (opcional)" rows="3" style="
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-family: inherit;
+    "></textarea>
+    
+    <input type="text" id="offerDuration" placeholder="Duración estimada (ej: 60 min)" style="
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    ">
+    
+    <button type="submit" style="
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    ">Publicar Oferta</button>
+    
+    <div id="offerStatus" style="
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    "></div>
+  `;
+}
+
 // FUNCIÓN MEJORADA para cargar métricas
 async function loadTodayMetrics() {
   try {
@@ -52,24 +121,73 @@ document.addEventListener('DOMContentLoaded', function() {
   console.log('🔄 Cargando métricas iniciales...');
   loadTodayMetrics();
   
+  // Mejorar formulario de ofertas
+  enhanceOfferForm();
+  
   // Refrescar automáticamente cada 30 segundos
   setInterval(loadTodayMetrics, 30000);
 });
 
-// ⬇️⬇️⬇️ AGREGAR ESTO: Escuchar eventos de nueva reserva ⬇️⬇️⬇️
+// Escuchar eventos de nueva reserva
 window.addEventListener('newBooking', function() {
   console.log('📢 Nueva reserva detectada, actualizando métricas...');
-  setTimeout(loadTodayMetrics, 1000); // Esperar 1s para que Supabase procese
+  setTimeout(loadTodayMetrics, 1000);
 });
 
+// FORMULARIO DE OFERTAS MEJORADO
 offerForm.onsubmit = async (e) => {
   e.preventDefault();
+  
+  const statusDiv = document.getElementById('offerStatus');
+  statusDiv.style.display = 'block';
+  statusDiv.style.background = '#fff3cd';
+  statusDiv.style.color = '#856404';
+  statusDiv.textContent = 'Publicando oferta...';
+  
   try {
-    await postOffer(document.getElementById('offerText').value);
+    const offerData = {
+      text: document.getElementById('offerText').value.trim(),
+      price: document.getElementById('offerPrice').value || null,
+      description: document.getElementById('offerDescription').value.trim() || '',
+      duration: document.getElementById('offerDuration').value.trim() || '',
+      created_at: new Date().toISOString()
+    };
+    
+    if (!offerData.text) {
+      throw new Error('El título de la oferta es requerido');
+    }
+    
+    await fetch(`${GAS_URL}/offers`, {
+      method: 'POST',
+      headers: { 
+        apikey: SUPA_KEY, 
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(offerData)
+    });
+    
+    // Éxito
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.textContent = '✅ Oferta publicada exitosamente';
+    
+    // Limpiar formulario
     offerForm.reset();
-    alert('Oferta publicada');
+    
+    // Notificar a app.js que hay ofertas nuevas
+    window.dispatchEvent(new CustomEvent('offersUpdated'));
+    
+    // Ocultar mensaje después de 3 segundos
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 3000);
+    
   } catch (err) {
-    alert('Error al publicar oferta: ' + err.message);
+    console.error('Error al publicar oferta:', err);
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.textContent = `❌ Error: ${err.message}`;
   }
 };
 
@@ -102,4 +220,19 @@ async function reloadServices() {
   });
 }
 
-console.log('✅ admin.js cargado - Métricas se actualizan automáticamente');
+// ---- función para ver ofertas existentes ----
+async function viewExistingOffers() {
+  try {
+    const offers = await fetch(`${GAS_URL}/offers?select=*&order=created_at.desc`, {
+      headers: { apikey: SUPA_KEY }
+    }).then(r => r.json());
+    
+    console.log('Ofertas existentes:', offers);
+    return offers;
+  } catch (error) {
+    console.error('Error viendo ofertas:', error);
+    return [];
+  }
+}
+
+console.log('✅ admin.js cargado - Sistema de ofertas mejorado');

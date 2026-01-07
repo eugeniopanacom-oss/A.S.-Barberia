@@ -31,6 +31,19 @@ async function loadMetrics() {
   return { total, count, avg, peak: '14:00' };
 }
 
+// ========== FUNCIÓN PARA CARGAR TODAS LAS OFERTAS ==========
+async function loadAllOffers() {
+  try {
+    const res = await fetch(`${GAS_URL}/offers?select=*&order=created_at.desc`, {
+      headers: { apikey: SUPA_KEY }
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('❌ Error cargando ofertas:', error);
+    return [];
+  }
+}
+
 async function postOffer(text) {
   await fetch(`${GAS_URL}/offers`, {
     method: 'POST',
@@ -148,5 +161,6 @@ async function syncBookings() {
 window.saveBooking = saveBooking;
 window.loadServices = loadServices;
 window.loadMetrics = loadMetrics;
+window.loadAllOffers = loadAllOffers;
 
 console.log('✅ db.js cargado - saveBooking lista');
