@@ -49,7 +49,6 @@ form.onsubmit = async (e) => {
     date: dateInput.value,
     time: timeSel.value,
     price: price
-    // ⬅️ SIN 'created' - la tabla usa 'created_at' automático
   };
   
   console.log('📤 Turno a guardar:', bookingData);
@@ -71,10 +70,17 @@ form.onsubmit = async (e) => {
     // Limpiar formulario
     form.reset();
     
-    // Actualizar métricas si existe
-    if (typeof loadMetrics === 'function') {
-      setTimeout(() => loadMetrics(), 1000);
-    }
+    // ⬇️⬇️⬇️ NOTIFICAR A ADMIN.JS SOBRE NUEVA RESERVA ⬇️⬇️⬇️
+    // Disparar evento personalizado
+    window.dispatchEvent(new CustomEvent('newBooking', { 
+      detail: { 
+        date: bookingData.date,
+        time: bookingData.time,
+        service: bookingData.service
+      }
+    }));
+    
+    console.log('📢 Evento newBooking disparado para actualizar métricas');
     
   } catch (error) {
     console.error('❌ Error:', error);

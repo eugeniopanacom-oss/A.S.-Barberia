@@ -4,12 +4,13 @@ const todayList = document.getElementById('todayList');
 const offerForm = document.getElementById('offerForm');
 const priceForm = document.getElementById('priceForm');
 
-loadBtn.onclick = async () => {
+// FUNCIÓN MEJORADA para cargar métricas
+async function loadTodayMetrics() {
   try {
+    // Usar fecha ACTUAL, no fija
+    const today = new Date().toISOString().split('T')[0]; // ⬅️ FECHA DINÁMICA
+    
     // ---------- métricas y turnos de HOY ----------
-    const today = '2026-01-06'; // ← fecha en la que hiciste los turnos
-
-    // métricas
     const todayBookings = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=price`, {
       headers: { apikey: SUPA_KEY }
     }).then(r => r.json());
@@ -19,10 +20,10 @@ loadBtn.onclick = async () => {
     const avg   = count ? (total / count).toFixed(2) : 0;
 
     metricsDiv.innerHTML = `
-      <p>Recaudación HOY: $${total}</p>
-      <p>Turnos HOY: ${count}</p>
-      <p>Promedio HOY: $${avg}</p>
-      <p>Hora pico: 14:00</p>
+      <p><strong>Recaudación HOY (${today}):</strong> $${total}</p>
+      <p><strong>Turnos HOY:</strong> ${count}</p>
+      <p><strong>Promedio HOY:</strong> $${avg}</p>
+      <p><strong>Hora pico:</strong> 14:00</p>
     `;
 
     // lista de hoy
@@ -32,12 +33,34 @@ loadBtn.onclick = async () => {
     const list = await res.json();
 
     todayList.innerHTML = Array.isArray(list) && list.length
-      ? list.map(b => `<li>${b.time} - ${b.name} - ${b.service}</li>`).join('')
+      ? list.map(b => `<li><strong>${b.time}</strong> - ${b.name} - ${b.service}</li>`).join('')
       : '<li>Sin turnos hoy</li>';
+    
+    console.log(`📊 Métricas cargadas para ${today}: ${count} turnos, $${total}`);
+    
   } catch (err) {
-    alert('Error al cargar métricas: ' + err.message);
+    console.error('❌ Error al cargar métricas:', err);
+    metricsDiv.innerHTML = `<p style="color: red;">Error al cargar métricas: ${err.message}</p>`;
   }
-};
+}
+
+// Botón para cargar métricas
+loadBtn.onclick = loadTodayMetrics;
+
+// Cargar métricas automáticamente al abrir admin
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🔄 Cargando métricas iniciales...');
+  loadTodayMetrics();
+  
+  // Refrescar automáticamente cada 30 segundos
+  setInterval(loadTodayMetrics, 30000);
+});
+
+// ⬇️⬇️⬇️ AGREGAR ESTO: Escuchar eventos de nueva reserva ⬇️⬇️⬇️
+window.addEventListener('newBooking', function() {
+  console.log('📢 Nueva reserva detectada, actualizando métricas...');
+  setTimeout(loadTodayMetrics, 1000); // Esperar 1s para que Supabase procese
+});
 
 offerForm.onsubmit = async (e) => {
   e.preventDefault();
@@ -78,3 +101,5 @@ async function reloadServices() {
     sel.appendChild(opt);
   });
 }
+
+console.log('✅ admin.js cargado - Métricas se actualizan automáticamente');
