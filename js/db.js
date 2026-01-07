@@ -47,6 +47,20 @@ async function savePrice(name, price) {
   });
 }
 
+// ========== FUNCIÓN PARA CARGAR OFERTAS ==========
+async function loadOffers() {
+  try {
+    const res = await fetch(`${GAS_URL}/offers?select=*&order=created_at.desc&limit=1`, {
+      headers: { apikey: SUPA_KEY }
+    });
+    const offers = await res.json();
+    return offers.length > 0 ? offers[0] : null;
+  } catch (error) {
+    console.error('❌ Error cargando ofertas:', error);
+    return null;
+  }
+}
+
 // ========== INDEXEDDB (OFFLINE) ==========
 const dbName = 'asDB';
 const storeName = 'bookings';
@@ -148,5 +162,6 @@ async function syncBookings() {
 window.saveBooking = saveBooking;
 window.loadServices = loadServices;
 window.loadMetrics = loadMetrics;
+window.loadOffers = loadOffers;
 
 console.log('✅ db.js cargado - saveBooking lista');

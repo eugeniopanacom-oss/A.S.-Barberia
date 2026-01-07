@@ -218,10 +218,82 @@ form.onsubmit = async (e) => {
   }
 };
 
+// ---------- MOSTRAR OFERTA ACTUAL ----------
+async function showCurrentOffer() {
+  try {
+    if (typeof loadOffers !== 'function') {
+      console.log('ℹ️ loadOffers no disponible aún');
+      return;
+    }
+    
+    const offer = await loadOffers();
+    
+    // Buscar o crear contenedor
+    let offerContainer = document.getElementById('currentOffer');
+    
+    if (!offerContainer) {
+      offerContainer = document.createElement('div');
+      offerContainer.id = 'currentOffer';
+      offerContainer.style.cssText = `
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        text-align: center;
+        font-size: 1.1em;
+      `;
+      
+      // Insertar al inicio del body
+      const header = document.querySelector('header');
+      const main = document.querySelector('main');
+      
+      if (header) {
+        header.parentNode.insertBefore(offerContainer, header.nextSibling);
+      } else if (main) {
+        main.parentNode.insertBefore(offerContainer, main);
+      } else {
+        document.body.prepend(offerContainer);
+      }
+    }
+    
+    if (offer && offer.text) {
+      offerContainer.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span style="font-size: 1.5em;">🎯</span>
+          <div>
+            <strong style="font-size: 1.2em;">¡OFERTA ESPECIAL!</strong><br>
+            ${offer.text}
+          </div>
+          <span style="font-size: 1.5em;">🔥</span>
+        </div>
+      `;
+      offerContainer.style.display = 'block';
+      console.log('✅ Oferta mostrada:', offer.text);
+    } else {
+      offerContainer.style.display = 'none';
+      console.log('ℹ️ No hay ofertas activas');
+    }
+    
+  } catch (error) {
+    console.warn('⚠️ No se pudo cargar la oferta:', error);
+  }
+}
+
 // ---------- Inicializar ----------
 // Verificar disponibilidad si ya hay fecha seleccionada
 if (dateInput.value) {
   checkAvailableTimes(dateInput.value);
 }
+
+// Mostrar oferta después de que todo cargue
+window.addEventListener('load', function() {
+  // Esperar un momento para asegurar que loadOffers esté disponible
+  setTimeout(showCurrentOffer, 1000);
+  
+  // Actualizar oferta cada 30 segundos
+  setInterval(showCurrentOffer, 30000);
+});
 
 console.log('✅ app.js cargado - Sistema de disponibilidad activo');
