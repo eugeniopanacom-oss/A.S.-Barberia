@@ -220,6 +220,64 @@ async function reloadServices() {
   });
 }
 
+// ---- función para marcar turnos pasados como completados ----
+async function markOldBookingsAsCompleted() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Encontrar turnos pasados aún pendientes
+    const oldBookings = await fetch(
+      `${GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
+      { headers: { apikey: SUPA_KEY } }
+    ).then(r => r.json());
+    
+    if (oldBookings.length === 0) {
+      console.log('✅ No hay turnos pasados pendientes');
+      return { updated: 0, message: 'No hay turnos pendientes para marcar' };
+    }
+    
+    console.log(`📝 Encontrados ${oldBookings.length} turnos pasados pendientes`);
+    
+    // Preguntar confirmación
+    const confirmUpdate = confirm(
+      `¿Marcar ${oldBookings.length} turnos pasados como "completados"?\n\n` +
+      `Esto mantendrá el historial pero los marcará como finalizados.`
+    );
+    
+    if (!confirmUpdate) return { updated: 0, message: 'Cancelado' };
+    
+    // Actualizar estado a 'completed'
+    let updatedCount = 0;
+    for (const booking of oldBookings) {
+      try {
+        await fetch(`${GAS_URL}/bookings?id=eq.${booking.id}`, {
+          method: 'PATCH',
+          headers: { 
+            apikey: SUPA_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ status: 'completed' })
+        });
+        updatedCount++;
+        console.log(`✅ Marcado como completado: ${booking.date} ${booking.time} - ${booking.name}`);
+      } catch (err) {
+        console.error(`❌ Error actualizando ${booking.id}:`, err);
+      }
+    }
+    
+    alert(`✅ ${updatedCount} turnos marcados como completados`);
+    console.log(`🎉 Actualización completada: ${updatedCount} turnos`);
+    
+    return { updated: updatedCount, total: oldBookings.length };
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    alert('Error: ' + error.message);
+    throw error;
+  }
+}
+
 // ---- función para ver ofertas existentes ----
 async function viewExistingOffers() {
   try {
