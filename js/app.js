@@ -17,6 +17,399 @@ function createAvailabilityElement() {
   return div;
 }
 
+// Mis turnos (cancelacion/modificacion)
+const myBookingsSection = document.getElementById('myBookings') || createMyBookingsSection();
+const myBookingsList = document.getElementById('myBookingsList');
+
+// Función para crear la sección de mis turnos
+function createMyBookingsSection() {
+  const section = document.createElement('section');
+  section.id = 'myBookings';
+  section.style.cssText = `
+    margin: 30px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+  `;
+  
+  section.innerHTML = `
+    <h2 style="margin-top: 0; color: #333;">📅 Mis Turnos Reservados</h2>
+    <div id="myBookingsList" style="
+      min-height: 100px;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+    ">
+      <p style="text-align: center; color: #6c757d; font-style: italic;">
+        Cargando tus turnos...
+      </p>
+    </div>
+    <div id="bookingActions" style="
+      margin-top: 15px;
+      display: none;
+      padding: 15px;
+      background: #e7f3ff;
+      border-radius: 8px;
+    ">
+      <h3 style="margin-top: 0;">✏️ Modificar Turno</h3>
+      <form id="editBookingForm">
+        <input type="hidden" id="editBookingId">
+        <label>Nuevo servicio:
+          <select id="editService" required></select>
+        </label>
+        <label>Nueva fecha:
+          <input type="date" id="editDate" required>
+        </label>
+        <label>Nueva hora:
+          <select id="editTime" required></select>
+        </label>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button type="submit" style="flex: 1; background: #28a745;">💾 Guardar Cambios</button>
+          <button type="button" id="cancelEditBtn" style="flex: 1; background: #6c757d;">❌ Cancelar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  
+  // Insertar después del formulario de reserva
+  const bookingForm = document.getElementById('bookingForm');
+  if (bookingForm) {
+    bookingForm.parentNode.insertBefore(section, bookingForm.nextSibling);
+  } else {
+    document.getElementById('userSection').appendChild(section);
+  }
+  
+  return section;
+}
+
+// ---------- FUNCIÓN: Cargar turnos del usuario ----------
+async function loadMyBookings() {
+  try {
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      myBookingsList.innerHTML = `
+        <p style="text-align: center; color: #6c757d;">
+          Inicia sesión para ver tus turnos reservados
+        </p>
+      `;
+      return;
+    }
+    
+    // Cargar solo turnos pendientes del usuario actual
+    const today = new Date().toISOString().split('T')[0];
+    const response = await fetch(
+      `${GAS_URL}/bookings?uid=eq.${user.uid}&status=eq.pending&date=gte.${today}&select=*&order=date.asc,time.asc`,
+      { headers: { apikey: SUPA_KEY } }
+    );
+    
+    const bookings = await response.json();
+    
+    if (bookings.length === 0) {
+      myBookingsList.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+          <p style="color: #6c757d;">No tenés turnos reservados</p>
+          <p style="font-size: 0.9em; opacity: 0.8;">¡Reservá tu primer turno ahora!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    let bookingsHTML = '';
+    
+    bookings.forEach(booking => {
+      const bookingDate = new Date(booking.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const isToday = bookingDate.getTime() === today.getTime();
+      const isPast = bookingDate < today;
+      
+      bookingsHTML += `
+        <div id="booking-${booking.id}" style="
+          padding: 15px;
+          margin: 10px 0;
+          background: ${isToday ? '#fff3cd' : (isPast ? '#f8f9fa' : '#e7f3ff')};
+          border-radius: 8px;
+          border-left: 4px solid ${isToday ? '#ffc107' : (isPast ? '#6c757d' : '#007bff')};
+          position: relative;
+        ">
+          <div style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 15px;
+          ">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                <strong style="font-size: 1.1em;">${booking.service}</strong>
+                ${isToday ? '<span style="background: #ffc107; color: #333; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">HOY</span>' : ''}
+                ${isPast ? '<span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">PASADO</span>' : ''}
+              </div>
+              <div style="color: #495057; font-size: 0.95em;">
+                <div>📅 <strong>Fecha:</strong> ${booking.date}</div>
+                <div>⏰ <strong>Hora:</strong> ${booking.time}</div>
+                <div>💰 <strong>Precio:</strong> $${booking.price}</div>
+                <div>🆔 <strong>Reserva #:</strong> ${booking.id}</div>
+              </div>
+            </div>
+            
+            <div style="
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              min-width: 120px;
+            ">
+              <button onclick="editBooking(${booking.id})" style="
+                background: #17a2b8;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                justify-content: center;
+              ">
+                ✏️ Modificar
+              </button>
+              
+              <button onclick="cancelBooking(${booking.id}, '${booking.service}', '${booking.date} ${booking.time}')" style="
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                justify-content: center;
+              ">
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    myBookingsList.innerHTML = bookingsHTML;
+    console.log(`✅ ${bookings.length} turno(s) cargado(s) para el usuario`);
+    
+  } catch (error) {
+    console.error('❌ Error cargando turnos:', error);
+    myBookingsList.innerHTML = `
+      <div style="color: #dc3545; text-align: center; padding: 20px;">
+        <p>⚠️ Error al cargar tus turnos</p>
+        <p style="font-size: 0.9em;">${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// ---------- FUNCIÓN: Cancelar turno ----------
+async function cancelBooking(bookingId, service, datetime) {
+  const confirmCancel = confirm(
+    `¿Estás seguro de cancelar este turno?\n\n` +
+    `Servicio: ${service}\n` +
+    `Fecha y hora: ${datetime}\n\n` +
+    `Esta acción no se puede deshacer.`
+  );
+  
+  if (!confirmCancel) return;
+  
+  try {
+    // Cambiar estado a 'cancelled' en lugar de eliminar
+    const response = await fetch(`${GAS_URL}/bookings?id=eq.${bookingId}`, {
+      method: 'PATCH',
+      headers: { 
+        apikey: SUPA_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'cancelled' })
+    });
+    
+    if (response.ok) {
+      alert('✅ Turno cancelado exitosamente');
+      
+      // Actualizar la lista
+      loadMyBookings();
+      
+      // Notificar al admin
+      window.dispatchEvent(new CustomEvent('bookingCancelled'));
+    } else {
+      throw new Error(`Error ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error cancelando turno:', error);
+    alert('❌ Error al cancelar el turno: ' + error.message);
+  }
+}
+
+// ---------- FUNCIÓN: Editar turno ----------
+async function editBooking(bookingId) {
+  try {
+    // Cargar datos del turno
+    const response = await fetch(
+      `${GAS_URL}/bookings?id=eq.${bookingId}`,
+      { headers: { apikey: SUPA_KEY } }
+    );
+    
+    const booking = (await response.json())[0];
+    if (!booking) throw new Error('Turno no encontrado');
+    
+    // Verificar que no sea un turno pasado
+    const today = new Date().toISOString().split('T')[0];
+    if (booking.date < today) {
+      alert('⚠️ No se pueden modificar turnos pasados');
+      return;
+    }
+    
+    // Llenar formulario de edición
+    document.getElementById('editBookingId').value = bookingId;
+    document.getElementById('editDate').value = booking.date;
+    document.getElementById('editDate').min = today;
+    
+    // Llenar select de servicios
+    const editServiceSelect = document.getElementById('editService');
+    editServiceSelect.innerHTML = '';
+    
+    const services = await loadServices();
+    services.forEach(s => {
+      const option = document.createElement('option');
+      option.value = s.name;
+      option.textContent = `${s.name} – $${s.price}`;
+      option.selected = s.name === booking.service;
+      editServiceSelect.appendChild(option);
+    });
+    
+    // Llenar select de horas
+    const editTimeSelect = document.getElementById('editTime');
+    editTimeSelect.innerHTML = '';
+    
+    const hours = ['09:00','10:00','11:00','12:00','14:00','15:00','16:00','17:00','18:00'];
+    hours.forEach(h => {
+      const option = document.createElement('option');
+      option.value = h;
+      option.textContent = h;
+      option.selected = h === booking.time;
+      editTimeSelect.appendChild(option);
+    });
+    
+    // Mostrar formulario de edición
+    document.getElementById('bookingActions').style.display = 'block';
+    
+    // Scroll al formulario
+    document.getElementById('bookingActions').scrollIntoView({ behavior: 'smooth' });
+    
+  } catch (error) {
+    console.error('❌ Error preparando edición:', error);
+    alert('Error: ' + error.message);
+  }
+}
+
+// ---------- FORMULARIO DE EDICIÓN ----------
+document.getElementById('editBookingForm')?.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const bookingId = document.getElementById('editBookingId').value;
+  const newDate = document.getElementById('editDate').value;
+  const newTime = document.getElementById('editTime').value;
+  const newService = document.getElementById('editService').value;
+  
+  // Verificar disponibilidad del nuevo horario
+  try {
+    const availabilityCheck = await fetch(
+      `${GAS_URL}/bookings?date=eq.${newDate}&time=eq.${newTime}&status=eq.pending&select=id`,
+      { headers: { apikey: SUPA_KEY } }
+    );
+    
+    const existing = await availabilityCheck.json();
+    
+    // Si hay otro turno en ese horario (y no es el mismo)
+    if (existing.length > 0 && existing[0].id != bookingId) {
+      alert('❌ Este horario ya está ocupado. Por favor, elegí otro.');
+      return;
+    }
+    
+    // Obtener precio del nuevo servicio
+    const serviceText = document.getElementById('editService').selectedOptions[0]?.text || '';
+    const priceMatch = serviceText.match(/\$(\d+)/);
+    const newPrice = priceMatch ? parseInt(priceMatch[1]) : 0;
+    
+    // Actualizar turno
+    const updateResponse = await fetch(`${GAS_URL}/bookings?id=eq.${bookingId}`, {
+      method: 'PATCH',
+      headers: { 
+        apikey: SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        date: newDate,
+        time: newTime,
+        service: newService,
+        price: newPrice,
+        updated_at: new Date().toISOString()
+      })
+    });
+    
+    if (updateResponse.ok) {
+      alert('✅ Turno actualizado exitosamente');
+      
+      // Ocultar formulario de edición
+      document.getElementById('bookingActions').style.display = 'none';
+      
+      // Actualizar lista de turnos
+      loadMyBookings();
+      
+      // Notificar al admin
+      window.dispatchEvent(new CustomEvent('bookingUpdated'));
+    } else {
+      throw new Error(`Error ${updateResponse.status}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error actualizando turno:', error);
+    alert('❌ Error al actualizar el turno: ' + error.message);
+  }
+});
+
+// Botón para cancelar edición
+document.getElementById('cancelEditBtn')?.addEventListener('click', function() {
+  document.getElementById('bookingActions').style.display = 'none';
+  document.getElementById('editBookingForm').reset();
+});
+
+// ---------- INICIALIZACIÓN ----------
+// Escuchar cambios de autenticación
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    // Cargar turnos del usuario
+    setTimeout(loadMyBookings, 1000);
+    
+    // Actualizar turnos cada 30 segundos
+    setInterval(loadMyBookings, 30000);
+  }
+});
+
+// Actualizar turnos cuando se reserva uno nuevo
+window.addEventListener('newBooking', function() {
+  setTimeout(loadMyBookings, 2000);
+});
+
+// Hacer funciones globales para los botones onclick
+window.cancelBooking = cancelBooking;
+window.editBooking = editBooking;
+
+console.log('✅ Sistema de gestión de turnos cargado');
+
 // Crear elemento para ofertas si no existe
 const offerSel = document.getElementById('offer') || createOfferSelect();
 

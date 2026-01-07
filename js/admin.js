@@ -220,6 +220,17 @@ async function reloadServices() {
   });
 }
 
+// para escuchar eventos(modificaiones o cancelaciones de turnos)
+window.addEventListener('bookingCancelled', function() {
+  console.log('📢 Turno cancelado por usuario, actualizando métricas...');
+  setTimeout(loadTodayMetrics, 1000);
+});
+
+window.addEventListener('bookingUpdated', function() {
+  console.log('📢 Turno modificado por usuario, actualizando métricas...');
+  setTimeout(loadTodayMetrics, 1000);
+});
+
 // ---- función para marcar turnos pasados como completados ----
 async function markOldBookingsAsCompleted() {
   try {
