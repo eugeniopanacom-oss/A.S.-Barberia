@@ -16,12 +16,25 @@
     <button id="logoutBtn" hidden>Cerrar sesión</button>
   </header>
 
-   <!-- ⬇️⬇️⬇️ AGREGA ESTE CONTENEDOR DE OFERTAS AQUÍ ⬇️⬇️⬇️ -->
-  <div id="offerDisplay" style="display: none;">
-    <!-- La oferta se cargará aquí automáticamente -->
-  </div>
-
   <main>
+    <!-- SECCIÓN DE OFERTAS (visible para todos) -->
+    <section id="offersSection" style="
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+      <h2 style="margin-top: 0; text-align: center;">🎁 Ofertas Especiales</h2>
+      <div id="offersContainer">
+        <!-- Las ofertas se cargarán aquí dinámicamente -->
+        <p style="text-align: center; font-style: italic;">
+          Cargando ofertas...
+        </p>
+      </div>
+    </section>
+
     <section id="userSection" hidden>
       <h2>Reservá tu turno</h2>
       <form id="bookingForm">
@@ -47,6 +60,7 @@
       <ul id="todayList"></ul>
       <h3>Publicar oferta</h3>
       <form id="offerForm">
+        <!-- El formulario se mejorará dinámicamente -->
         <input id="offerText" placeholder="Texto de la oferta" required>
         <button type="submit">Publicar</button>
       </form>
@@ -55,6 +69,60 @@
         <input id="serviceName" placeholder="Servicio" required>
         <input id="servicePrice" type="number" placeholder="Precio $" required>
         <button type="submit">Guardar</button>
+      </form>
+
+      <!-- ✅ AGREGA AQUÍ LAS HERRAMIENTAS ADMIN -->
+<div class="admin-tools">
+  <h3>⚙️ Herramientas Administrativas</h3>
+  <div class="tool-buttons">
+    <button onclick="markOldBookingsAsCompleted()" class="tool-btn warning">
+      Marcar Turnos Pasados
+    </button>
+    <button onclick="viewExistingOffers()" class="tool-btn info">
+      Ver Ofertas
+    </button>
+  </div>
+</div>
+
+<style>
+.admin-tools {
+  margin-top: 30px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.tool-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tool-btn {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.tool-btn.warning {
+  background: #ffc107;
+  color: #000;
+}
+
+.tool-btn.info {
+  background: #17a2b8;
+  color: white;
+}
+
+.tool-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  transition: all 0.2s;
+}
+      </style>
       </form>
     </section>
   </main>

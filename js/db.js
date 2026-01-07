@@ -157,6 +157,10 @@ async function syncBookings() {
   }
 }
 
+//  esto para trackear modificaciones
+console.log("-- Para trackear modificaciones, ejecuta en Supabase:");
+console.log("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();");
+
 // ========== EXPORTAR ==========
 window.saveBooking = saveBooking;
 window.loadServices = loadServices;
