@@ -12,14 +12,16 @@ if (!loadBtn || !metricsDiv || !todayList || !offerForm) {
 // Función para verificar y crear formulario de ofertas
 function initOfferForm() {
   const offerForm = document.getElementById('offerForm');
-  if (!offerForm) {
-    console.error('❌ Formulario de ofertas no encontrado');
-    return;
-  }
+  if (!offerForm) return;
   
-  // Limpiar y crear formulario completo
+  // Calcular fecha por defecto (24 horas desde ahora)
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const defaultDate = tomorrow.toISOString().split('T')[0];
+  const defaultTime = "23:59";
+  
   offerForm.innerHTML = `
-    <h3>Publicar Nueva Oferta</h3>
+    <h3>🎁 Publicar Nueva Oferta</h3>
     
     <input type="text" 
            id="offerText" 
@@ -32,6 +34,7 @@ function initOfferForm() {
            placeholder="Precio especial $" 
            min="0" 
            step="100"
+           required
            style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
     
     <textarea id="offerDescription" 
@@ -39,12 +42,32 @@ function initOfferForm() {
               rows="3"
               style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit;"></textarea>
     
+    <!-- DURACIÓN EN MINUTOS (mantener para referencia) -->
     <input type="number" 
            id="offerDuration" 
-           placeholder="Duración en minutos" 
+           placeholder="Duración estimada en minutos" 
            min="15" 
            step="15"
+           value="60"
            style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    
+    <!-- FECHA Y HORA DE EXPIRACIÓN -->
+    <div style="display: flex; gap: 10px; margin: 10px 0;">
+      <div style="flex: 1;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">📅 Válida hasta:</label>
+        <input type="date" 
+               id="offerExpiresDate" 
+               value="${defaultDate}"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+      </div>
+      <div style="flex: 1;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">⏰ Hora límite:</label>
+        <input type="time" 
+               id="offerExpiresTime" 
+               value="${defaultTime}"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+      </div>
+    </div>
     
     <button type="submit" 
             style="width: 100%; padding: 12px; margin: 10px 0; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background 0.3s;">
@@ -54,7 +77,6 @@ function initOfferForm() {
     <div id="offerStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
   `;
   
-  // Asignar el event listener directamente
   offerForm.onsubmit = handleOfferSubmit;
 }
 
@@ -63,18 +85,13 @@ async function handleOfferSubmit(e) {
   e.preventDefault();
   
   const statusDiv = document.getElementById('offerStatus');
-  if (!statusDiv) {
-    alert('Error: No se puede mostrar el estado');
-    return;
-  }
-  
   statusDiv.style.display = 'block';
   statusDiv.style.background = '#fff3cd';
   statusDiv.style.color = '#856404';
   statusDiv.textContent = 'Publicando oferta...';
   
   try {
-    // Obtener valores con verificación
+    // Obtener valores
     const getValue = (id) => {
       const element = document.getElementById(id);
       return element ? (element.value || '').trim() : '';
@@ -84,43 +101,33 @@ async function handleOfferSubmit(e) {
     const price = getValue('offerPrice');
     const description = getValue('offerDescription');
     const duration = getValue('offerDuration');
+    const expiresDate = getValue('offerExpiresDate');
+    const expiresTime = getValue('offerExpiresTime');
     
     // Validaciones
-    if (!text) {
-      throw new Error('El título de la oferta es requerido');
-    }
+    if (!text) throw new Error('El título es requerido');
+    if (!price || isNaN(price) || Number(price) <= 0) throw new Error('Precio inválido');
+    if (!expiresDate) throw new Error('Fecha de expiración requerida');
     
-    if (!price) {
-      throw new Error('El precio es requerido');
-    }
+    // Crear fecha de expiración combinando date + time
+    const expiresAt = new Date(`${expiresDate}T${expiresTime}:00`);
     
-    if (isNaN(price) || Number(price) <= 0) {
-      throw new Error('Precio inválido');
-    }
-    
-    if (!duration) {
-      throw new Error('La duración es requerida');
-    }
-    
-    if (isNaN(duration) || Number(duration) < 15) {
-      throw new Error('Duración mínima: 15 minutos');
+    // Verificar que no sea fecha pasada
+    if (expiresAt < new Date()) {
+      throw new Error('La fecha de expiración no puede ser en el pasado');
     }
     
     const offerData = {
       text: text,
       price: Number(price),
-      description: description,
-      duration: Number(duration),
-      created_at: new Date().toISOString(),
-      active: true
+      description: description || null,
+      duration_minutes: duration ? Number(duration) : 60,
+      expires_at: expiresAt.toISOString(),
+      active: true,
+      created_at: new Date().toISOString()
     };
     
     console.log('📤 Enviando oferta:', offerData);
-    
-    // Verificar que GAS_URL y SUPA_KEY estén definidas
-    if (!window.GAS_URL || !window.SUPA_KEY) {
-      throw new Error('Configuración de API no encontrada');
-    }
     
     const response = await fetch(`${GAS_URL}/offers`, {
       method: 'POST',
@@ -137,87 +144,26 @@ async function handleOfferSubmit(e) {
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
     
-    const result = await response.json();
-    console.log('✅ Oferta publicada:', result);
-    
     // Éxito
     statusDiv.style.background = '#d4edda';
     statusDiv.style.color = '#155724';
-    statusDiv.textContent = '✅ Oferta publicada exitosamente';
+    statusDiv.textContent = '✅ Oferta publicada con cuenta regresiva';
     
     // Limpiar formulario
     const form = document.getElementById('offerForm');
     if (form) form.reset();
     
-    // Notificar a app.js que hay ofertas nuevas
     window.dispatchEvent(new CustomEvent('offersUpdated'));
     
-    // Ocultar mensaje después de 3 segundos
     setTimeout(() => {
       statusDiv.style.display = 'none';
     }, 3000);
     
   } catch (err) {
-    console.error('❌ Error al publicar oferta:', err);
+    console.error('❌ Error:', err);
     statusDiv.style.background = '#f8d7da';
     statusDiv.style.color = '#721c24';
     statusDiv.textContent = `❌ Error: ${err.message}`;
-    
-    // Mantener el mensaje de error visible
-    setTimeout(() => {
-      statusDiv.style.display = 'none';
-    }, 5000);
-  }
-}
-
-// FUNCIÓN MEJORADA para cargar métricas
-async function loadTodayMetrics() {
-  try {
-    // Usar fecha ACTUAL
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Verificar configuraciones
-    if (!window.GAS_URL || !window.SUPA_KEY) {
-      throw new Error('Variables GAS_URL o SUPA_KEY no definidas');
-    }
-    
-    // Obtener turnos de hoy
-    const todayBookings = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=price`, {
-      headers: { apikey: SUPA_KEY }
-    }).then(r => r.json());
-    
-    const total = todayBookings.reduce((s, b) => s + (b.price || 0), 0);
-    const count = todayBookings.length;
-    const avg = count ? (total / count).toFixed(2) : 0;
-    
-    if (metricsDiv) {
-      metricsDiv.innerHTML = `
-        <p><strong>Recaudación HOY (${today}):</strong> $${total}</p>
-        <p><strong>Turnos HOY:</strong> ${count}</p>
-        <p><strong>Promedio HOY:</strong> $${avg}</p>
-        <p><strong>Hora pico:</strong> 14:00</p>
-      `;
-    }
-    
-    // Lista de turnos de hoy
-    const res = await fetch(`${GAS_URL}/bookings?date=eq.${today}&select=time,name,service&order=time`, {
-      headers: { apikey: SUPA_KEY }
-    });
-    const list = await res.json();
-    
-    if (todayList) {
-      todayList.innerHTML = Array.isArray(list) && list.length
-        ? list.map(b => `<li><strong>${b.time}</strong> - ${b.name} - ${b.service}</li>`).join('')
-        : '<li>Sin turnos hoy</li>';
-    }
-    
-    console.log(`📊 Métricas cargadas para ${today}: ${count} turnos, $${total}`);
-    
-  } catch (err) {
-    console.error('❌ Error al cargar métricas:', err);
-    if (metricsDiv) {
-      metricsDiv.innerHTML = `<p style="color: red;">Error al cargar métricas: ${err.message}</p>`;
-    }
   }
 }
 

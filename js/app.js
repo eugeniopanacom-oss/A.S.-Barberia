@@ -326,6 +326,135 @@ async function loadOffersIntoForm() {
   }
 }
 
+// Función para mostrar cuenta regresiva en ofertas
+function updateOfferCountdowns() {
+  const offerElements = document.querySelectorAll('[data-expires-at]');
+  
+  offerElements.forEach(element => {
+    const expiresAt = new Date(element.dataset.expiresAt);
+    const now = new Date();
+    const diffMs = expiresAt - now;
+    
+    if (diffMs <= 0) {
+      // Oferta expirada
+      element.innerHTML = '<span style="color: #dc3545;">⏰ Oferta expirada</span>';
+      return;
+    }
+    
+    // Calcular horas y minutos restantes
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // Formatear
+    let countdownText = '';
+    if (diffHours > 0) {
+      countdownText += `${diffHours}h `;
+    }
+    countdownText += `${diffMinutes}m`;
+    
+    // Actualizar elemento
+    element.innerHTML = `
+      <span style="color: #28a745; font-weight: bold;">
+        ⏳ Válida por: ${countdownText}
+      </span>
+    `;
+  });
+}
+
+// Modificar loadOffersIntoForm para incluir cuenta regresiva
+async function loadOffersIntoForm() {
+  try {
+    const offers = await loadAllOffers();
+    const offerSelect = document.getElementById('offerSelect');
+    const offerContainer = document.getElementById('offersContainer');
+    
+    if (!offers || offers.length === 0) {
+      if (offerContainer) {
+        offerContainer.innerHTML = '<p style="text-align: center; font-style: italic;">No hay ofertas disponibles</p>';
+      }
+      return;
+    }
+    
+    // Filtrar ofertas activas y no expiradas
+    const now = new Date();
+    const activeOffers = offers.filter(offer => {
+      if (offer.active === false) return false;
+      if (offer.expires_at) {
+        return new Date(offer.expires_at) > now;
+      }
+      return true; // Si no tiene fecha de expiración, se muestra
+    });
+    
+    if (activeOffers.length === 0) {
+      if (offerContainer) {
+        offerContainer.innerHTML = '<p style="text-align: center; font-style: italic;">No hay ofertas activas</p>';
+      }
+      return;
+    }
+    
+    // Actualizar selector en formulario
+    if (offerSelect) {
+      offerSelect.innerHTML = '<option value="">-- Sin oferta, elegir servicio normal --</option>';
+      
+      activeOffers.forEach(offer => {
+        const option = document.createElement('option');
+        option.value = offer.id;
+        option.textContent = `${offer.text} - $${offer.price}`;
+        option.dataset.price = offer.price;
+        option.dataset.text = offer.text;
+        option.dataset.description = offer.description || '';
+        option.dataset.expiresAt = offer.expires_at;
+        offerSelect.appendChild(option);
+      });
+    }
+    
+    // Actualizar sección visual de ofertas
+    if (offerContainer) {
+      offerContainer.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          ${activeOffers.map(offer => `
+            <div style="
+              background: rgba(255, 255, 255, 0.2);
+              padding: 15px;
+              border-radius: 8px;
+              border-left: 4px solid #ffc107;
+            ">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong style="font-size: 1.1em;">${offer.text}</strong>
+                  <div style="font-size: 1.2em; font-weight: bold; color: #ffc107;">
+                    $${offer.price}
+                  </div>
+                </div>
+                <div id="countdown-${offer.id}" data-expires-at="${offer.expires_at}" style="
+                  background: rgba(0, 0, 0, 0.3);
+                  padding: 5px 10px;
+                  border-radius: 20px;
+                  font-size: 0.9em;
+                ">
+                  Cargando...
+                </div>
+              </div>
+              ${offer.description ? `<div style="margin-top: 8px; font-style: italic;">${offer.description}</div>` : ''}
+              <div style="margin-top: 8px; font-size: 0.9em; opacity: 0.9;">
+                ⏱️ ${offer.duration_minutes || 60} min
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      
+      // Iniciar cuenta regresiva
+      updateOfferCountdowns();
+      // Actualizar cada minuto
+      setInterval(updateOfferCountdowns, 60000);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error cargando ofertas:', error);
+  }
+}
+
 // ========== MODIFICAR saveBooking PARA OFERTAS ==========
 
 // Función modificada para manejar ofertas
