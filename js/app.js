@@ -252,6 +252,161 @@ async function cancelBooking(bookingId, service, datetime) {
   }
 }
 
+// ========== CARGAR OFERTAS EN FORMULARIO DE RESERVA ==========
+
+// Función para cargar ofertas en el selector
+async function loadOffersIntoForm() {
+  try {
+    const offerSelect = document.getElementById('offerSelect');
+    if (!offerSelect) return;
+    
+    const offers = await loadAllOffers();
+    
+    if (!offers || offers.length === 0) {
+      offerSelect.innerHTML = '<option value="">No hay ofertas disponibles</option>';
+      return;
+    }
+    
+    // Limpiar y agregar opciones (manteniendo la primera opción)
+    const firstOption = offerSelect.options[0];
+    offerSelect.innerHTML = '';
+    offerSelect.appendChild(firstOption);
+    
+    // Agregar cada oferta
+    offers.forEach(offer => {
+      if (offer.active !== false) { // Solo ofertas activas
+        const option = document.createElement('option');
+        option.value = offer.id;
+        option.textContent = `${offer.text} - $${offer.price} (${offer.duration} min)`;
+        option.dataset.price = offer.price;
+        option.dataset.text = offer.text;
+        option.dataset.description = offer.description || '';
+        offerSelect.appendChild(option);
+      }
+    });
+    
+    // Configurar evento change
+    offerSelect.addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const offerDescription = document.getElementById('offerDescription');
+      const serviceSelect = document.getElementById('service');
+      
+      if (this.value && selectedOption.dataset.description) {
+        // Mostrar descripción
+        offerDescription.innerHTML = `<strong>📝 Descripción:</strong> ${selectedOption.dataset.description}`;
+        offerDescription.style.display = 'block';
+        
+        // Actualizar selector de servicio con la oferta seleccionada
+        if (serviceSelect) {
+          serviceSelect.innerHTML = `
+            <option value="${selectedOption.dataset.text}" selected>
+              ${selectedOption.dataset.text} - $${selectedOption.dataset.price}
+            </option>
+          `;
+          
+          // Actualizar campo oculto de precio
+          const priceInput = document.getElementById('servicePrice');
+          if (priceInput) {
+            priceInput.value = selectedOption.dataset.price;
+          }
+        }
+      } else {
+        // Ocultar descripción
+        offerDescription.style.display = 'none';
+        
+        // Restaurar servicios normales
+        if (serviceSelect && !this.value) {
+          reloadServices();
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cargando ofertas en formulario:', error);
+  }
+}
+
+// ========== MODIFICAR saveBooking PARA OFERTAS ==========
+
+// Función modificada para manejar ofertas
+async function saveBookingWithOffer(data) {
+  const offerSelect = document.getElementById('offerSelect');
+  
+  // Si hay una oferta seleccionada, agregar info
+  if (offerSelect && offerSelect.value) {
+    data.is_offer = true;
+    data.offer_id = offerSelect.value;
+    data.offer_price = offerSelect.options[offerSelect.selectedIndex].dataset.price;
+  }
+  
+  return await saveBooking(data);
+}
+
+// ========== MODIFICAR EL EVENTO SUBMIT DEL FORMULARIO ==========
+
+// Busca en tu app.js donde está el evento submit del formulario
+// y reemplaza la llamada a saveBooking por saveBookingWithOffer
+
+// EJEMPLO: Si tienes algo así:
+// bookingForm.onsubmit = async (e) => {
+//   e.preventDefault();
+//   const data = { ... };
+//   const result = await saveBooking(data); // ← CAMBIAR ESTO
+// };
+
+// POR ESTO:
+// bookingForm.onsubmit = async (e) => {
+//   e.preventDefault();
+//   const data = { ... };
+//   const result = await saveBookingWithOffer(data); // ← POR ESTO
+// };
+
+// ========== INICIALIZACIÓN ==========
+
+// En tu función principal (DOMContentLoaded), agrega:
+document.addEventListener('DOMContentLoaded', async function() {
+  // ... tu código existente ...
+  
+  // ✅ AGREGAR ESTAS LÍNEAS:
+  await loadOffersIntoForm();
+  
+  // Escuchar cuando se publican nuevas ofertas
+  window.addEventListener('offersUpdated', function() {
+    console.log('🔄 Ofertas actualizadas, recargando selector...');
+    loadOffersIntoForm();
+  });
+});
+
+// ========== AGREGAR A app.js FUNCIONES NECESARIAS ==========
+
+// Si no tienes estas funciones en app.js, agrégalas:
+async function reloadServices() {
+  const services = await loadServices();
+  const serviceSelect = document.getElementById('service');
+  
+  if (!serviceSelect) return;
+  
+  serviceSelect.innerHTML = '<option value="">-- Selecciona un servicio --</option>';
+  
+  services.forEach(s => {
+    const option = document.createElement('option');
+    option.value = s.name;
+    option.textContent = `${s.name} – $${s.price}`;
+    option.dataset.price = s.price;
+    serviceSelect.appendChild(option);
+  });
+  
+  // Configurar evento para actualizar precio oculto
+  serviceSelect.addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const priceInput = document.getElementById('servicePrice');
+    
+    if (priceInput && selectedOption.dataset.price) {
+      priceInput.value = selectedOption.dataset.price;
+    }
+  });
+}
+
 // ---------- FUNCIÓN: Editar turno ----------
 async function editBooking(bookingId) {
   try {

@@ -38,6 +38,40 @@
     <section id="userSection" hidden>
       <h2>Reservá tu turno</h2>
       <form id="bookingForm">
+        <!-- ✅ AGREGAR SELECTOR DE OFERTAS DENTRO DEL FORMULARIO -->
+        <div id="offerSelectorContainer" style="
+          background: #e8f4fd;
+          padding: 12px;
+          margin-bottom: 15px;
+          border-radius: 6px;
+          border-left: 4px solid #667eea;
+        ">
+          <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #2c3e50;">
+            🎁 ¿Querés una oferta especial? (opcional)
+          </label>
+          <select id="offerSelect" style="
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 15px;
+            background: white;
+            cursor: pointer;
+          ">
+            <option value="">-- Sin oferta, elegir servicio normal --</option>
+            <!-- Las ofertas se cargarán aquí dinámicamente -->
+          </select>
+          <div id="offerDescription" style="
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            display: none;
+          "></div>
+        </div>
+
         <label>Servicio:
           <select id="service" required></select>
         </label>
@@ -47,6 +81,8 @@
         <label>Hora:
           <select id="time" required></select>
         </label>
+        <!-- ✅ AGREGAR CAMPO OCULTO PARA PRECIO -->
+        <input type="hidden" id="servicePrice">
         <button type="submit">Reservar</button>
       </form>
       <p id="msg"></p>
@@ -71,59 +107,53 @@
         <button type="submit">Guardar</button>
       </form>
 
-      <!-- ✅ AGREGA AQUÍ LAS HERRAMIENTAS ADMIN -->
-<div class="admin-tools">
-  <h3>⚙️ Herramientas Administrativas</h3>
-  <div class="tool-buttons">
-    <button onclick="markOldBookingsAsCompleted()" class="tool-btn warning">
-      Marcar Turnos Pasados
-    </button>
-    <button onclick="viewExistingOffers()" class="tool-btn info">
-      Ver Ofertas
-    </button>
-  </div>
-</div>
+      <!-- ✅ HERRAMIENTAS ADMIN -->
+      <div class="admin-tools">
+        <h3>⚙️ Herramientas Administrativas</h3>
+        <div class="tool-buttons">
+          <button onclick="markOldBookingsAsCompleted()" class="tool-btn warning">
+            Marcar Turnos Pasados
+          </button>
+          <button onclick="viewExistingOffers()" class="tool-btn info">
+            Ver Ofertas
+          </button>
+        </div>
+      </div>
 
-<style>
-.admin-tools {
-  margin-top: 30px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border-left: 4px solid #007bff;
-}
-
-.tool-buttons {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.tool-btn {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.tool-btn.warning {
-  background: #ffc107;
-  color: #000;
-}
-
-.tool-btn.info {
-  background: #17a2b8;
-  color: white;
-}
-
-.tool-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
-  transition: all 0.2s;
-}
+      <style>
+        .admin-tools {
+          margin-top: 30px;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border-left: 4px solid #007bff;
+        }
+        .tool-buttons {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .tool-btn {
+          padding: 10px 15px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: bold;
+        }
+        .tool-btn.warning {
+          background: #ffc107;
+          color: #000;
+        }
+        .tool-btn.info {
+          background: #17a2b8;
+          color: white;
+        }
+        .tool-btn:hover {
+          opacity: 0.9;
+          transform: translateY(-2px);
+          transition: all 0.2s;
+        }
       </style>
-      </form>
     </section>
   </main>
 
