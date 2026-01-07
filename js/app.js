@@ -252,6 +252,488 @@ async function cancelBooking(bookingId, service, datetime) {
   }
 }
 
+// ========== SISTEMA DE OFERTAS CON EXPIRACIÓN ==========
+
+// Función para crear formulario dinámico de ofertas
+function createDynamicOfferForm() {
+  const container = document.getElementById('offerFormDynamic');
+  if (!container) return;
+  
+  // Calcular fecha por defecto (24 horas desde ahora)
+  const now = new Date();
+  const defaultExpires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  
+  container.innerHTML = `
+    <div style="
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    ">
+      <h4 style="margin-top: 0;">🎁 Configurar Oferta</h4>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+          Título de la oferta *
+        </label>
+        <input type="text" 
+               id="offerText" 
+               placeholder="Ej: Corte + Barba especial" 
+               required 
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+          Precio especial ($) *
+        </label>
+        <input type="number" 
+               id="offerPrice" 
+               placeholder="Ej: 2500" 
+               min="0" 
+               step="100"
+               required
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">
+          Descripción (opcional)
+        </label>
+        <textarea id="offerDescription" 
+                  placeholder="Describe los beneficios de esta oferta..." 
+                  rows="3"
+                  style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+      </div>
+      
+      <div style="
+        background: #e7f3ff;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        border-left: 4px solid #007bff;
+      ">
+        <h5 style="margin-top: 0; display: flex; align-items: center; gap: 8px;">
+          ⏰ Configurar tiempo de vigencia
+        </h5>
+        
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <div style="flex: 1;">
+            <label style="display: block; margin-bottom: 5px;">
+              Horas
+            </label>
+            <select id="offerHours" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+              <option value="0">0 horas</option>
+              <option value="1">1 hora</option>
+              <option value="2">2 horas</option>
+              <option value="4" selected>4 horas</option>
+              <option value="8">8 horas</option>
+              <option value="12">12 horas</option>
+              <option value="24">24 horas</option>
+              <option value="48">48 horas (2 días)</option>
+              <option value="72">72 horas (3 días)</option>
+              <option value="168">168 horas (1 semana)</option>
+            </select>
+          </div>
+          
+          <div style="flex: 1;">
+            <label style="display: block; margin-bottom: 5px;">
+              Minutos
+            </label>
+            <select id="offerMinutes" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+              <option value="0" selected>0 minutos</option>
+              <option value="15">15 minutos</option>
+              <option value="30">30 minutos</option>
+              <option value="45">45 minutos</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px;">
+          <div id="expiresPreview" style="font-weight: bold; color: #28a745;">
+            La oferta estará activa hasta: ${formatDate(defaultExpires)}
+          </div>
+          <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+            Total: <span id="totalDuration">24 horas</span>
+          </div>
+        </div>
+      </div>
+      
+      <button type="submit" 
+              style="
+                width: 100%;
+                padding: 12px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: transform 0.2s;
+              "
+              onmouseover="this.style.transform='translateY(-2px)'"
+              onmouseout="this.style.transform='translateY(0)'">
+        🚀 Publicar Oferta
+      </button>
+    </div>
+    
+    <div id="offerStatus" style="
+      margin-top: 10px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    "></div>
+  `;
+  
+  // Configurar eventos para actualizar vista previa
+  document.getElementById('offerHours').addEventListener('change', updateExpiresPreview);
+  document.getElementById('offerMinutes').addEventListener('change', updateExpiresPreview);
+  
+  // Configurar evento submit
+  const offerForm = document.getElementById('offerForm');
+  if (offerForm) {
+    offerForm.onsubmit = handleOfferSubmit;
+  }
+}
+
+// Función para formatear fecha
+function formatDate(date) {
+  return date.toLocaleString('es-AR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// Función para actualizar vista previa de expiración
+function updateExpiresPreview() {
+  const hours = parseInt(document.getElementById('offerHours').value) || 0;
+  const minutes = parseInt(document.getElementById('offerMinutes').value) || 0;
+  
+  // Calcular fecha de expiración
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000));
+  
+  // Actualizar vista previa
+  document.getElementById('expiresPreview').textContent = 
+    `La oferta estará activa hasta: ${formatDate(expiresAt)}`;
+  
+  // Actualizar total
+  let totalText = '';
+  if (hours > 0) totalText += `${hours} hora${hours !== 1 ? 's' : ''}`;
+  if (minutes > 0) {
+    if (hours > 0) totalText += ' y ';
+    totalText += `${minutes} minuto${minutes !== 1 ? 's' : ''}`;
+  }
+  if (hours === 0 && minutes === 0) totalText = '0 minutos';
+  
+  document.getElementById('totalDuration').textContent = totalText;
+}
+
+// Función para manejar envío de oferta
+async function handleOfferSubmit(e) {
+  e.preventDefault();
+  
+  const statusDiv = document.getElementById('offerStatus');
+  if (!statusDiv) return;
+  
+  statusDiv.style.display = 'block';
+  statusDiv.style.background = '#fff3cd';
+  statusDiv.style.color = '#856404';
+  statusDiv.textContent = '⏳ Publicando oferta...';
+  
+  try {
+    // Obtener valores
+    const text = document.getElementById('offerText')?.value.trim() || '';
+    const price = document.getElementById('offerPrice')?.value.trim() || '';
+    const description = document.getElementById('offerDescription')?.value.trim() || '';
+    const hours = parseInt(document.getElementById('offerHours')?.value || '0');
+    const minutes = parseInt(document.getElementById('offerMinutes')?.value || '0');
+    
+    // Validaciones
+    if (!text) throw new Error('El título es requerido');
+    if (!price || isNaN(price) || Number(price) <= 0) throw new Error('Precio inválido');
+    if (hours === 0 && minutes === 0) throw new Error('Selecciona un tiempo de vigencia');
+    
+    // Calcular fecha de expiración
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000));
+    
+    const offerData = {
+      text: text,
+      price: Number(price),
+      description: description || null,
+      expires_at: expiresAt.toISOString(),
+      active: true,
+      created_at: now.toISOString()
+    };
+    
+    console.log('📤 Enviando oferta:', offerData);
+    
+    const response = await fetch(`${GAS_URL}/offers`, {
+      method: 'POST',
+      headers: { 
+        'apikey': SUPA_KEY, 
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(offerData)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+    
+    // Éxito
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.textContent = '✅ Oferta publicada exitosamente';
+    
+    // Limpiar formulario
+    document.getElementById('offerText').value = '';
+    document.getElementById('offerPrice').value = '';
+    document.getElementById('offerDescription').value = '';
+    document.getElementById('offerHours').value = '4';
+    document.getElementById('offerMinutes').value = '0';
+    updateExpiresPreview();
+    
+    // Notificar actualización
+    window.dispatchEvent(new CustomEvent('offersUpdated'));
+    
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 3000);
+    
+  } catch (err) {
+    console.error('❌ Error:', err);
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.textContent = `❌ Error: ${err.message}`;
+  }
+}
+
+// ========== MODIFICAR FUNCIONES EXISTENTES ==========
+
+// Modificar loadOffersIntoSelect para usar expires_at
+async function loadOffersIntoSelect() {
+  try {
+    if (typeof loadAllOffers !== 'function') {
+      console.warn('loadAllOffers no está disponible');
+      return;
+    }
+    
+    const offers = await loadAllOffers();
+    const select = document.getElementById('offer');
+    const descriptionDiv = document.getElementById('offerDescription');
+    
+    if (!select) return;
+    
+    // Filtrar ofertas activas y no expiradas
+    const now = new Date();
+    const activeOffers = offers.filter(offer => {
+      if (offer.active === false) return false;
+      if (offer.expires_at) {
+        return new Date(offer.expires_at) > now;
+      }
+      return true;
+    });
+    
+    // Guardar la opción seleccionada actual
+    const currentValue = select.value;
+    
+    // Limpiar opciones excepto la primera
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+    
+    if (activeOffers.length === 0) {
+      const option = document.createElement('option');
+      option.value = "";
+      option.textContent = "No hay ofertas disponibles";
+      select.appendChild(option);
+      descriptionDiv.style.display = 'none';
+      return;
+    }
+    
+    // Agregar cada oferta con tiempo restante
+    activeOffers.forEach(offer => {
+      const option = document.createElement('option');
+      option.value = offer.id || offer.text;
+      
+      // Calcular tiempo restante
+      let timeLeftText = '';
+      if (offer.expires_at) {
+        const expiresAt = new Date(offer.expires_at);
+        const diffMs = expiresAt - now;
+        
+        if (diffMs > 0) {
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          timeLeftText = ` ⏳ `;
+          if (diffHours > 0) timeLeftText += `${diffHours}h `;
+          timeLeftText += `${diffMinutes}m`;
+        }
+      }
+      
+      // Formato: "Texto – $Precio [tiempo]"
+      let optionText = `${offer.text} – $${offer.price || 0}`;
+      optionText += timeLeftText;
+      option.textContent = optionText;
+      
+      // Guardar datos
+      option.dataset.description = offer.description || offer.text;
+      option.dataset.price = offer.price || '';
+      option.dataset.expiresAt = offer.expires_at || '';
+      
+      select.appendChild(option);
+    });
+    
+    // Restaurar selección
+    if (currentValue) {
+      select.value = currentValue;
+      triggerOfferChange(select);
+    }
+    
+    console.log(`✅ ${activeOffers.length} oferta(s) activa(s)`);
+    
+    // Iniciar actualización de cuenta regresiva
+    startCountdownUpdates();
+    
+  } catch (error) {
+    console.error('❌ Error cargando ofertas:', error);
+  }
+}
+
+// Modificar triggerOfferChange para mostrar expiración
+function triggerOfferChange(select) {
+  const descriptionDiv = document.getElementById('offerDescription');
+  const selectedOption = select.options[select.selectedIndex];
+  
+  if (select.value && selectedOption.dataset.description) {
+    let descriptionHTML = '';
+    
+    // Descripción
+    if (selectedOption.dataset.description) {
+      descriptionHTML += `<div style="margin-bottom: 10px; padding: 10px; background: #e7f3ff; border-radius: 5px;">
+        <strong>📝 Descripción:</strong><br>
+        ${selectedOption.dataset.description}
+      </div>`;
+    }
+    
+    // Precio
+    if (selectedOption.dataset.price) {
+      descriptionHTML += `<div style="margin-bottom: 8px;">
+        <strong>💰 Precio especial:</strong> $${selectedOption.dataset.price}
+      </div>`;
+    }
+    
+    // Tiempo restante
+    if (selectedOption.dataset.expiresAt) {
+      const expiresAt = new Date(selectedOption.dataset.expiresAt);
+      const now = new Date();
+      const diffMs = expiresAt - now;
+      
+      if (diffMs > 0) {
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        descriptionHTML += `<div style="
+          margin-bottom: 8px; 
+          padding: 8px;
+          background: ${diffHours < 1 ? '#fff3cd' : '#d4edda'};
+          border-radius: 5px;
+          border-left: 4px solid ${diffHours < 1 ? '#ffc107' : '#28a745'};
+        ">
+          <strong>⏰ Tiempo restante:</strong><br>
+          ${diffHours > 0 ? `<span style="font-size: 1.2em; font-weight: bold;">${diffHours}h ${diffMinutes}m</span>` : 
+            `<span style="font-size: 1.2em; font-weight: bold; color: #dc3545;">${diffMinutes} minutos</span>`}
+          <br>
+          <small>Válida hasta: ${expiresAt.toLocaleString('es-AR')}</small>
+        </div>`;
+      }
+    }
+    
+    descriptionDiv.innerHTML = descriptionHTML;
+    descriptionDiv.style.display = 'block';
+  } else {
+    descriptionDiv.style.display = 'none';
+  }
+}
+
+// Función para actualizar cuenta regresiva
+function startCountdownUpdates() {
+  const updateInterval = setInterval(() => {
+    const select = document.getElementById('offer');
+    if (!select || select.options.length <= 1) {
+      clearInterval(updateInterval);
+      return;
+    }
+    
+    const now = new Date();
+    let hasActiveOffers = false;
+    
+    // Actualizar cada opción
+    for (let i = 1; i < select.options.length; i++) {
+      const option = select.options[i];
+      const expiresAt = option.dataset.expiresAt;
+      
+      if (expiresAt) {
+        const expiresDate = new Date(expiresAt);
+        const diffMs = expiresDate - now;
+        
+        if (diffMs <= 0) {
+          // Oferta expirada
+          option.style.display = 'none';
+        } else {
+          // Actualizar tiempo
+          hasActiveOffers = true;
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          
+          let optionText = option.textContent.split('⏳')[0].trim();
+          let timeLeftText = ` ⏳ `;
+          if (diffHours > 0) timeLeftText += `${diffHours}h `;
+          timeLeftText += `${diffMinutes}m`;
+          
+          option.textContent = optionText + timeLeftText;
+          option.style.display = '';
+          
+          // Si esta seleccionada, actualizar descripción
+          if (option.selected) {
+            triggerOfferChange(select);
+          }
+        }
+      }
+    }
+    
+    // Si no hay ofertas activas, recargar
+    if (!hasActiveOffers) {
+      loadOffersIntoSelect();
+    }
+    
+  }, 30000); // Cada 30 segundos
+}
+
+// ========== INICIALIZACIÓN ==========
+
+// Al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+  // Si es admin, crear formulario dinámico
+  const adminSection = document.getElementById('adminSection');
+  if (adminSection && !adminSection.hidden) {
+    createDynamicOfferForm();
+  }
+  
+  // Cargar ofertas
+  setTimeout(loadOffersIntoSelect, 500);
+});
+
 // ========== CARGAR OFERTAS EN FORMULARIO DE RESERVA ==========
 
 // Función para cargar ofertas en el selector
