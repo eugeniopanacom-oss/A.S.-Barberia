@@ -1,7 +1,8 @@
 // admin.js - Módulo de administración para Barbería PWA
 // Variables globales (deberían venir desde config.js o app.js)
-const GAS_URL = window.GAS_URL || '';
-const SUPA_KEY = window.SUPA_KEY || '';
+// Usar nombres diferentes para evitar conflicto con otras variables
+const ADMIN_GAS_URL = window.GAS_URL || 'https://athjkugyucogikjlwxbz.supabase.co/rest/v1';
+const ADMIN_SUPA_KEY = window.SUPA_KEY || 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv';
 
 // ==============================
 // 1. ELEMENTOS DEL DOM
@@ -29,8 +30,7 @@ const DOM = {
     },
     
     /**
-     * Crear sección de herramientas administrativas
-     * AHORA SIMPLIFICADA - Solo verifica que exista el contenedor
+     * Crear/verificar sección de herramientas administrativas
      */
     createAdminToolsSection: function() {
         // Verificar si ya existe (ahora está en el HTML)
@@ -69,8 +69,8 @@ const AdminToolsModule = {
             
             // Obtener turnos pasados pendientes
             const response = await fetch(
-                `${GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
-                { headers: { apikey: SUPA_KEY } }
+                `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
+                { headers: { apikey: ADMIN_SUPA_KEY } }
             );
             
             if (!response.ok) throw new Error('Error al buscar turnos');
@@ -128,10 +128,10 @@ const AdminToolsModule = {
             
             for (const booking of oldBookings) {
                 try {
-                    await fetch(`${GAS_URL}/bookings?id=eq.${booking.id}`, {
+                    await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
                         method: 'PATCH',
                         headers: { 
-                            apikey: SUPA_KEY,
+                            apikey: ADMIN_SUPA_KEY,
                             'Content-Type': 'application/json',
                             'Prefer': 'return=minimal'
                         },
@@ -181,8 +181,8 @@ const AdminToolsModule = {
         contentDiv.innerHTML = '';
         
         try {
-            const offers = await fetch(`${GAS_URL}/offers?select=*&order=created_at.desc`, {
-                headers: { apikey: SUPA_KEY }
+            const offers = await fetch(`${ADMIN_GAS_URL}/offers?select=*&order=created_at.desc`, {
+                headers: { apikey: ADMIN_SUPA_KEY }
             }).then(r => r.json());
             
             if (!offers || offers.length === 0) {
@@ -413,10 +413,10 @@ const OffersModule = {
      * Guarda la oferta en la API
      */
     saveOffer: async function(offerData) {
-        const response = await fetch(`${GAS_URL}/offers`, {
+        const response = await fetch(`${ADMIN_GAS_URL}/offers`, {
             method: 'POST',
             headers: { 
-                'apikey': SUPA_KEY, 
+                'apikey': ADMIN_SUPA_KEY, 
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
@@ -462,8 +462,8 @@ const OffersModule = {
     viewExisting: async function() {
         try {
             const response = await fetch(
-                `${GAS_URL}/offers?select=*&order=created_at.desc`,
-                { headers: { apikey: SUPA_KEY } }
+                `${ADMIN_GAS_URL}/offers?select=*&order=created_at.desc`,
+                { headers: { apikey: ADMIN_SUPA_KEY } }
             );
             
             if (!response.ok) throw new Error('Error al cargar ofertas');
@@ -490,10 +490,10 @@ const MetricsModule = {
             DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
             
             const today = new Date().toISOString().split('T')[0];
-            const endpoint = `${GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
+            const endpoint = `${ADMIN_GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
             
             const response = await fetch(endpoint, {
-                headers: { apikey: SUPA_KEY }
+                headers: { apikey: ADMIN_SUPA_KEY }
             });
             
             if (!response.ok) throw new Error('Error al cargar métricas');
@@ -627,10 +627,10 @@ const PricesModule = {
      * Guarda un precio en la base de datos
      */
     savePrice: async function(serviceName, price) {
-        const response = await fetch(`${GAS_URL}/prices`, {
+        const response = await fetch(`${ADMIN_GAS_URL}/prices`, {
             method: 'POST',
             headers: {
-                'apikey': SUPA_KEY,
+                'apikey': ADMIN_SUPA_KEY,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=minimal'
             },
@@ -661,8 +661,8 @@ const AdminUtils = {
             const today = new Date().toISOString().split('T')[0];
             
             const response = await fetch(
-                `${GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
-                { headers: { apikey: SUPA_KEY } }
+                `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
+                { headers: { apikey: ADMIN_SUPA_KEY } }
             );
             
             if (!response.ok) throw new Error('Error al cargar turnos');
@@ -684,10 +684,10 @@ const AdminUtils = {
             let updatedCount = 0;
             for (const booking of oldBookings) {
                 try {
-                    await fetch(`${GAS_URL}/bookings?id=eq.${booking.id}`, {
+                    await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
                         method: 'PATCH',
                         headers: { 
-                            apikey: SUPA_KEY,
+                            apikey: ADMIN_SUPA_KEY,
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ status: 'completed' })
@@ -760,8 +760,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Verificar configuración
-    if (!GAS_URL || !SUPA_KEY) {
-        console.error('❌ ERROR: GAS_URL o SUPA_KEY no están definidos');
+    if (!ADMIN_GAS_URL || !ADMIN_SUPA_KEY) {
+        console.error('❌ ERROR: ADMIN_GAS_URL o ADMIN_SUPA_KEY no están definidos');
         alert('Error de configuración. Verifica las variables de API.');
         return;
     }
