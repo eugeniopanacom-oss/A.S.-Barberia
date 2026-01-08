@@ -1,31 +1,72 @@
 // admin.js - Módulo de administración para Barbería PWA
-// Variables globales (deberían venir desde config.js o app.js)
-// Usar nombres diferentes para evitar conflicto con otras variables
-const ADMIN_GAS_URL = window.GAS_URL || 'https://athjkugyucogikjlwxbz.supabase.co/rest/v1';
-const ADMIN_SUPA_KEY = window.SUPA_KEY || 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv';
+// ==============================
+// 0. CORRECCIÓN DE VARIABLES GLOBALES
+// ==============================
+
+// FIX: Corregir URL si tiene espacio después de "https:"
+let rawGAS_URL = window.GAS_URL || '';
+let rawSUPA_KEY = window.SUPA_KEY || '';
+
+// Debug: mostrar qué encontramos
+console.log('🔍 Admin.js - Variables detectadas:', {
+    'window.GAS_URL': rawGAS_URL ? `"${rawGAS_URL.substring(0, 50)}..."` : 'NO DEFINIDA',
+    'window.SUPA_KEY': rawSUPA_KEY ? '***DEFINIDA***' : 'NO DEFINIDA'
+});
+
+// Limpiar URL si tiene espacios incorrectos
+if (rawGAS_URL && rawGAS_URL.includes('https: //')) {
+    console.warn('⚠️ URL tiene espacio, corrigiendo...');
+    rawGAS_URL = rawGAS_URL.replace('https: //', 'https://');
+}
+
+// También limpiar otros posibles espacios
+rawGAS_URL = rawGAS_URL.replace(/\s+/g, '');
+
+// Definir variables finales con fallback
+const ADMIN_GAS_URL = rawGAS_URL || 'https://athjkugyucogikjlwxbz.supabase.co/rest/v1';
+const ADMIN_SUPA_KEY = rawSUPA_KEY || 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv';
+
+console.log('🔧 Admin.js - URLs finales:', {
+    'ADMIN_GAS_URL': ADMIN_GAS_URL,
+    'ADMIN_SUPA_KEY': ADMIN_SUPA_KEY ? '✅ DEFINIDA' : '❌ NO DEFINIDA'
+});
 
 // ==============================
 // 1. ELEMENTOS DEL DOM (RENOMBRADO PARA EVITAR CONFLICTO)
 // ==============================
 const ADMIN_DOM = {
-    loadBtn: document.getElementById('loadMetrics'),
-    metricsDiv: document.getElementById('metrics'),
-    todayList: document.getElementById('todayList'),
-    offerForm: document.getElementById('offerForm'),
-    priceForm: document.getElementById('priceForm'),
+    get loadBtn() { return document.getElementById('loadMetrics'); },
+    get metricsDiv() { return document.getElementById('metrics'); },
+    get todayList() { return document.getElementById('todayList'); },
+    get offerForm() { return document.getElementById('offerForm'); },
+    get priceForm() { return document.getElementById('priceForm'); },
+    get markOldBtn() { return document.getElementById('markOldBookingsBtn'); },
+    get viewOffersBtn() { return document.getElementById('viewOffersBtn'); },
+    get refreshBtn() { return document.getElementById('refreshDataBtn'); },
+    get toolsOutput() { return document.getElementById('toolsOutput'); },
+    get toolsStatus() { return document.getElementById('toolsStatus'); },
+    get toolsContent() { return document.getElementById('toolsContent'); },
     adminToolsContainer: null,
     
     /**
      * Verificar existencia de elementos principales
      */
     checkElements: function() {
-        const missing = [];
-        Object.entries(this).forEach(([key, element]) => {
-            if (element === null && key !== 'checkElements' && key !== 'adminToolsContainer') {
-                console.warn(`⚠️ Elemento no encontrado: ${key}`);
-                missing.push(key);
-            }
-        });
+        const elements = [
+            { name: 'loadBtn', element: this.loadBtn },
+            { name: 'markOldBtn', element: this.markOldBtn },
+            { name: 'viewOffersBtn', element: this.viewOffersBtn },
+            { name: 'refreshBtn', element: this.refreshBtn }
+        ];
+        
+        const missing = elements.filter(item => !item.element).map(item => item.name);
+        
+        if (missing.length > 0) {
+            console.warn('⚠️ Elementos no encontrados:', missing);
+        } else {
+            console.log('✅ Todos los elementos críticos encontrados');
+        }
+        
         return missing.length === 0;
     },
     
@@ -33,15 +74,15 @@ const ADMIN_DOM = {
      * Crear/verificar sección de herramientas administrativas
      */
     createAdminToolsSection: function() {
-        // Verificar si ya existe (ahora está en el HTML)
         const existingContainer = document.getElementById('adminTools');
         if (existingContainer) {
             this.adminToolsContainer = existingContainer;
-            console.log('✅ Contenedor de herramientas ya existe en HTML');
-            return;
+            console.log('✅ Contenedor de herramientas encontrado en HTML');
+            return true;
         }
         
         console.warn('⚠️ Contenedor de herramientas no encontrado en HTML');
+        return false;
     }
 };
 
@@ -53,11 +94,14 @@ const AdminToolsModule = {
      * Marca turnos pasados como completados
      */
     markOldBookings: async function() {
-        const output = document.getElementById('toolsOutput');
-        const statusDiv = document.getElementById('toolsStatus');
-        const contentDiv = document.getElementById('toolsContent');
+        const output = ADMIN_DOM.toolsOutput;
+        const statusDiv = ADMIN_DOM.toolsStatus;
+        const contentDiv = ADMIN_DOM.toolsContent;
         
-        if (!output || !statusDiv) return;
+        if (!output || !statusDiv) {
+            console.error('❌ Elementos de salida no encontrados');
+            return;
+        }
         
         // Mostrar estado
         output.style.display = 'block';
@@ -68,14 +112,18 @@ const AdminToolsModule = {
             const today = new Date().toISOString().split('T')[0];
             
             // Obtener turnos pasados pendientes
+            console.log('📡 Consultando turnos pasados...');
             const response = await fetch(
                 `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
                 { headers: { apikey: ADMIN_SUPA_KEY } }
             );
             
-            if (!response.ok) throw new Error('Error al buscar turnos');
+            console.log('📊 Estado respuesta:', response.status);
+            
+            if (!response.ok) throw new Error(`Error ${response.status} al buscar turnos`);
             
             const oldBookings = await response.json();
+            console.log(`📊 ${oldBookings.length} turnos pasados encontrados`);
             
             if (oldBookings.length === 0) {
                 statusDiv.innerHTML = '<div style="color: #28a745;">✅ No hay turnos pasados pendientes</div>';
@@ -128,7 +176,7 @@ const AdminToolsModule = {
             
             for (const booking of oldBookings) {
                 try {
-                    await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
+                    const updateResponse = await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
                         method: 'PATCH',
                         headers: { 
                             apikey: ADMIN_SUPA_KEY,
@@ -138,8 +186,12 @@ const AdminToolsModule = {
                         body: JSON.stringify({ status: 'completed' })
                     });
                     
-                    updatedCount++;
-                    results.push(`✅ ${booking.date} ${booking.time} - ${booking.name}`);
+                    if (updateResponse.ok) {
+                        updatedCount++;
+                        results.push(`✅ ${booking.date} ${booking.time} - ${booking.name}`);
+                    } else {
+                        results.push(`❌ ${booking.date} ${booking.time} - ERROR ${updateResponse.status}`);
+                    }
                     
                 } catch (err) {
                     results.push(`❌ ${booking.date} ${booking.time} - ERROR: ${err.message}`);
@@ -160,7 +212,7 @@ const AdminToolsModule = {
             setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
             
         } catch (error) {
-            console.error('❌ Error:', error);
+            console.error('❌ Error en markOldBookings:', error);
             statusDiv.innerHTML = `<div style="color: #dc3545;">❌ Error: ${error.message}</div>`;
         }
     },
@@ -169,11 +221,14 @@ const AdminToolsModule = {
      * Muestra ofertas existentes
      */
     viewExistingOffers: async function() {
-        const output = document.getElementById('toolsOutput');
-        const statusDiv = document.getElementById('toolsStatus');
-        const contentDiv = document.getElementById('toolsContent');
+        const output = ADMIN_DOM.toolsOutput;
+        const statusDiv = ADMIN_DOM.toolsStatus;
+        const contentDiv = ADMIN_DOM.toolsContent;
         
-        if (!output || !statusDiv) return;
+        if (!output || !statusDiv) {
+            console.error('❌ Elementos de salida no encontrados');
+            return;
+        }
         
         // Mostrar estado
         output.style.display = 'block';
@@ -181,9 +236,17 @@ const AdminToolsModule = {
         contentDiv.innerHTML = '';
         
         try {
-            const offers = await fetch(`${ADMIN_GAS_URL}/offers?select=*&order=created_at.desc`, {
+            console.log('📡 Consultando ofertas...');
+            const response = await fetch(`${ADMIN_GAS_URL}/offers?select=*&order=created_at.desc`, {
                 headers: { apikey: ADMIN_SUPA_KEY }
-            }).then(r => r.json());
+            });
+            
+            console.log('📊 Estado respuesta:', response.status);
+            
+            if (!response.ok) throw new Error(`Error ${response.status} al cargar ofertas`);
+            
+            const offers = await response.json();
+            console.log(`📊 ${offers.length} ofertas encontradas`);
             
             if (!offers || offers.length === 0) {
                 statusDiv.innerHTML = '<div style="color: #6c757d;">📭 No hay ofertas registradas</div>';
@@ -251,25 +314,34 @@ const AdminToolsModule = {
      * Configura eventos para las herramientas
      */
     setupEventListeners: function() {
+        console.log('🔗 Configurando eventos de herramientas...');
+        
         // Botón para marcar turnos pasados
-        const markOldBtn = document.getElementById('markOldBookingsBtn');
+        const markOldBtn = ADMIN_DOM.markOldBtn;
         if (markOldBtn) {
+            console.log('✅ Configurando botón markOldBookingsBtn');
             markOldBtn.addEventListener('click', this.markOldBookings.bind(this));
+        } else {
+            console.error('❌ Botón markOldBookingsBtn no encontrado');
         }
         
         // Botón para ver ofertas existentes
-        const viewOffersBtn = document.getElementById('viewOffersBtn');
+        const viewOffersBtn = ADMIN_DOM.viewOffersBtn;
         if (viewOffersBtn) {
+            console.log('✅ Configurando botón viewOffersBtn');
             viewOffersBtn.addEventListener('click', this.viewExistingOffers.bind(this));
+        } else {
+            console.error('❌ Botón viewOffersBtn no encontrado');
         }
         
         // Botón para actualizar todo
-        const refreshBtn = document.getElementById('refreshDataBtn');
+        const refreshBtn = ADMIN_DOM.refreshBtn;
         if (refreshBtn) {
+            console.log('✅ Configurando botón refreshDataBtn');
             refreshBtn.addEventListener('click', () => {
                 MetricsModule.loadTodayMetrics();
-                const output = document.getElementById('toolsOutput');
-                const statusDiv = document.getElementById('toolsStatus');
+                const output = ADMIN_DOM.toolsOutput;
+                const statusDiv = ADMIN_DOM.toolsStatus;
                 if (output && statusDiv) {
                     output.style.display = 'block';
                     statusDiv.innerHTML = '<div style="color: #28a745;">🔄 Datos actualizados correctamente</div>';
@@ -278,7 +350,11 @@ const AdminToolsModule = {
                     }, 2000);
                 }
             });
+        } else {
+            console.error('❌ Botón refreshDataBtn no encontrado');
         }
+        
+        console.log('✅ Todos los eventos configurados');
     }
 };
 
@@ -290,7 +366,12 @@ const OffersModule = {
      * Inicializa el formulario de ofertas
      */
     initForm: function() {
-        if (!ADMIN_DOM.offerForm) return;
+        if (!ADMIN_DOM.offerForm) {
+            console.warn('⚠️ Formulario de ofertas no encontrado');
+            return;
+        }
+        
+        console.log('✅ Inicializando formulario de ofertas...');
         
         const now = new Date();
         const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -338,6 +419,7 @@ const OffersModule = {
         `;
         
         ADMIN_DOM.offerForm.onsubmit = this.handleSubmit.bind(this);
+        console.log('✅ Formulario de ofertas inicializado');
     },
     
     /**
@@ -413,6 +495,8 @@ const OffersModule = {
      * Guarda la oferta en la API
      */
     saveOffer: async function(offerData) {
+        console.log('📤 Guardando oferta:', offerData);
+        
         const response = await fetch(`${ADMIN_GAS_URL}/offers`, {
             method: 'POST',
             headers: { 
@@ -428,7 +512,9 @@ const OffersModule = {
             throw new Error(`Error ${response.status}: ${error}`);
         }
         
-        return response.json();
+        const result = await response.json();
+        console.log('✅ Oferta guardada:', result);
+        return result;
     },
     
     /**
@@ -484,7 +570,10 @@ const MetricsModule = {
      * Carga las métricas del día actual
      */
     loadTodayMetrics: async function() {
-        if (!ADMIN_DOM.metricsDiv) return;
+        if (!ADMIN_DOM.metricsDiv) {
+            console.warn('⚠️ Div de métricas no encontrado');
+            return;
+        }
         
         try {
             ADMIN_DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
@@ -492,13 +581,18 @@ const MetricsModule = {
             const today = new Date().toISOString().split('T')[0];
             const endpoint = `${ADMIN_GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
             
+            console.log('📡 Consultando métricas para:', today);
             const response = await fetch(endpoint, {
                 headers: { apikey: ADMIN_SUPA_KEY }
             });
             
-            if (!response.ok) throw new Error('Error al cargar métricas');
+            console.log('📊 Estado respuesta métricas:', response.status);
+            
+            if (!response.ok) throw new Error(`Error ${response.status} al cargar métricas`);
             
             const bookings = await response.json();
+            console.log(`📊 ${bookings.length} turnos encontrados para hoy`);
+            
             this.displayMetrics(bookings);
             this.displayTodayList(bookings);
             
@@ -588,8 +682,12 @@ const PricesModule = {
      * Inicializa el formulario de precios
      */
     initForm: function() {
-        if (!ADMIN_DOM.priceForm) return;
+        if (!ADMIN_DOM.priceForm) {
+            console.warn('⚠️ Formulario de precios no encontrado');
+            return;
+        }
         
+        console.log('✅ Inicializando formulario de precios...');
         ADMIN_DOM.priceForm.onsubmit = this.handleSubmit.bind(this);
     },
     
@@ -627,6 +725,8 @@ const PricesModule = {
      * Guarda un precio en la base de datos
      */
     savePrice: async function(serviceName, price) {
+        console.log('📤 Guardando precio:', { serviceName, price });
+        
         const response = await fetch(`${ADMIN_GAS_URL}/prices`, {
             method: 'POST',
             headers: {
@@ -645,6 +745,7 @@ const PricesModule = {
             throw new Error(`Error ${response.status} al guardar precio`);
         }
         
+        console.log('✅ Precio guardado');
         return response;
     }
 };
@@ -742,6 +843,7 @@ const AdminUtils = {
      * Inicia el refresh automático
      */
     startAutoRefresh: function(interval = 30000) {
+        console.log('⏰ Iniciando auto-refresh cada', interval/1000, 'segundos');
         setInterval(() => {
             MetricsModule.loadTodayMetrics();
         }, interval);
@@ -766,6 +868,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
+    console.log('✅ Configuración API verificada');
+    
     // Crear/verificar sección de herramientas administrativas
     ADMIN_DOM.createAdminToolsSection();
     
@@ -784,6 +888,14 @@ document.addEventListener('DOMContentLoaded', function() {
     AdminUtils.startAutoRefresh();
     
     console.log('✅ Admin.js inicializado correctamente');
+    
+    // Verificación final
+    setTimeout(() => {
+        console.log('🧪 Verificación final:');
+        console.log('- AdminToolsModule:', typeof AdminToolsModule);
+        console.log('- Botón ver ofertas:', ADMIN_DOM.viewOffersBtn ? '✅ Encontrado' : '❌ No encontrado');
+        console.log('- API URL:', ADMIN_GAS_URL);
+    }, 500);
 });
 
 // ==============================
@@ -811,3 +923,13 @@ window.viewExistingOffers = function() {
 };
 
 console.log('✅ admin.js cargado correctamente - Herramientas administrativas disponibles');
+
+// Test de conexión inmediata
+setTimeout(() => {
+    console.log('🧪 Test de conexión API...');
+    fetch(ADMIN_GAS_URL + '/offers?limit=1', {
+        headers: { apikey: ADMIN_SUPA_KEY }
+    })
+    .then(r => console.log(`📡 Test API: ${r.status} ${r.statusText}`))
+    .catch(err => console.error('❌ Test API falló:', err));
+}, 1000);
