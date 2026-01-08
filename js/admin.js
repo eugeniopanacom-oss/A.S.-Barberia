@@ -1,334 +1,533 @@
-const loadBtn = document.getElementById('loadMetrics');
-const metricsDiv = document.getElementById('metrics');
-const todayList = document.getElementById('todayList');
-const offerForm = document.getElementById('offerForm');
-const priceForm = document.getElementById('priceForm');
+// admin.js - Módulo de administración para Barbería PWA
+// Variables globales (deberían venir desde config.js o app.js)
+const GAS_URL = window.GAS_URL || '';
+const SUPA_KEY = window.SUPA_KEY || '';
 
-// Verificar que los elementos existen
-if (!loadBtn || !metricsDiv || !todayList || !offerForm) {
-  console.error('❌ Error: Elementos del DOM no encontrados');
-}
-
-// Función para verificar y crear formulario de ofertas
-function initOfferForm() {
-  const offerForm = document.getElementById('offerForm');
-  if (!offerForm) return;
-  
-  // Calcular fecha por defecto (24 horas desde ahora)
-  const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const defaultDate = tomorrow.toISOString().split('T')[0];
-  const defaultTime = "23:59";
-  
-  offerForm.innerHTML = `
-    <h3>🎁 Publicar Nueva Oferta</h3>
+// ==============================
+// 1. ELEMENTOS DEL DOM
+// ==============================
+const DOM = {
+    loadBtn: document.getElementById('loadMetrics'),
+    metricsDiv: document.getElementById('metrics'),
+    todayList: document.getElementById('todayList'),
+    offerForm: document.getElementById('offerForm'),
+    priceForm: document.getElementById('priceForm'),
     
-    <input type="text" 
-           id="offerText" 
-           placeholder="Título de la oferta (ej: Corte + Barba)" 
-           required 
-           style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-    
-    <input type="number" 
-           id="offerPrice" 
-           placeholder="Precio especial $" 
-           min="0" 
-           step="100"
-           required
-           style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-    
-    <textarea id="offerDescription" 
-              placeholder="Descripción detallada (opcional)" 
-              rows="3"
-              style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit;"></textarea>
-    
-    <!-- DURACIÓN EN MINUTOS (mantener para referencia) -->
-    <input type="number" 
-           id="offerDuration" 
-           placeholder="Duración estimada en minutos" 
-           min="15" 
-           step="15"
-           value="60"
-           style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-    
-    <!-- FECHA Y HORA DE EXPIRACIÓN -->
-    <div style="display: flex; gap: 10px; margin: 10px 0;">
-      <div style="flex: 1;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">📅 Válida hasta:</label>
-        <input type="date" 
-               id="offerExpiresDate" 
-               value="${defaultDate}"
-               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-      </div>
-      <div style="flex: 1;">
-        <label style="display: block; margin-bottom: 5px; font-weight: bold;">⏰ Hora límite:</label>
-        <input type="time" 
-               id="offerExpiresTime" 
-               value="${defaultTime}"
-               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
-      </div>
-    </div>
-    
-    <button type="submit" 
-            style="width: 100%; padding: 12px; margin: 10px 0; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background 0.3s;">
-      Publicar Oferta
-    </button>
-    
-    <div id="offerStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
-  `;
-  
-  offerForm.onsubmit = handleOfferSubmit;
-}
-
-// Función separada para manejar el envío del formulario
-async function handleOfferSubmit(e) {
-  e.preventDefault();
-  
-  const statusDiv = document.getElementById('offerStatus');
-  statusDiv.style.display = 'block';
-  statusDiv.style.background = '#fff3cd';
-  statusDiv.style.color = '#856404';
-  statusDiv.textContent = 'Publicando oferta...';
-  
-  try {
-    // Obtener valores
-    const getValue = (id) => {
-      const element = document.getElementById(id);
-      return element ? (element.value || '').trim() : '';
-    };
-    
-    const text = getValue('offerText');
-    const price = getValue('offerPrice');
-    const description = getValue('offerDescription');
-    const duration = getValue('offerDuration');
-    const expiresDate = getValue('offerExpiresDate');
-    const expiresTime = getValue('offerExpiresTime');
-    
-    // Validaciones
-    if (!text) throw new Error('El título es requerido');
-    if (!price || isNaN(price) || Number(price) <= 0) throw new Error('Precio inválido');
-    if (!expiresDate) throw new Error('Fecha de expiración requerida');
-    
-    // Crear fecha de expiración combinando date + time
-    const expiresAt = new Date(`${expiresDate}T${expiresTime}:00`);
-    
-    // Verificar que no sea fecha pasada
-    if (expiresAt < new Date()) {
-      throw new Error('La fecha de expiración no puede ser en el pasado');
-    }
-    
-    const offerData = {
-      text: text,
-      price: Number(price),
-      description: description || null,
-      duration_minutes: duration ? Number(duration) : 60,
-      expires_at: expiresAt.toISOString(),
-      active: true,
-      created_at: new Date().toISOString()
-    };
-    
-    console.log('📤 Enviando oferta:', offerData);
-    
-    const response = await fetch(`${GAS_URL}/offers`, {
-      method: 'POST',
-      headers: { 
-        'apikey': SUPA_KEY, 
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(offerData)
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
-    }
-    
-    // Éxito
-    statusDiv.style.background = '#d4edda';
-    statusDiv.style.color = '#155724';
-    statusDiv.textContent = '✅ Oferta publicada con cuenta regresiva';
-    
-    // Limpiar formulario
-    const form = document.getElementById('offerForm');
-    if (form) form.reset();
-    
-    window.dispatchEvent(new CustomEvent('offersUpdated'));
-    
-    setTimeout(() => {
-      statusDiv.style.display = 'none';
-    }, 3000);
-    
-  } catch (err) {
-    console.error('❌ Error:', err);
-    statusDiv.style.background = '#f8d7da';
-    statusDiv.style.color = '#721c24';
-    statusDiv.textContent = `❌ Error: ${err.message}`;
-  }
-}
-
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🔄 Admin.js inicializando...');
-  
-  // Inicializar formulario de ofertas
-  initOfferForm();
-  
-  // Configurar botón de métricas si existe
-  if (loadBtn) {
-    loadBtn.onclick = loadTodayMetrics;
-  }
-  
-  // Cargar métricas automáticamente
-  loadTodayMetrics();
-  
-  // Refrescar automáticamente cada 30 segundos
-  setInterval(loadTodayMetrics, 30000);
-});
-
-// Escuchar eventos de nueva reserva
-window.addEventListener('newBooking', function() {
-  console.log('📢 Nueva reserva detectada, actualizando métricas...');
-  setTimeout(loadTodayMetrics, 1000);
-});
-
-// Manejar formulario de precios
-if (priceForm) {
-  priceForm.onsubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const serviceName = document.getElementById('serviceName')?.value;
-      const servicePrice = document.getElementById('servicePrice')?.value;
-      
-      if (!serviceName || !servicePrice) {
-        alert('Complete todos los campos');
-        return;
-      }
-      
-      await savePrice(serviceName, servicePrice);
-      priceForm.reset();
-      alert('Precio guardado');
-      
-      // Recargar servicios
-      if (typeof reloadServices === 'function') {
-        await reloadServices();
-      }
-    } catch (err) {
-      alert('Error al guardar precio: ' + err.message);
-    }
-  };
-}
-
-// Para escuchar eventos (modificaciones o cancelaciones de turnos)
-window.addEventListener('bookingCancelled', function() {
-  console.log('📢 Turno cancelado por usuario, actualizando métricas...');
-  setTimeout(loadTodayMetrics, 1000);
-});
-
-window.addEventListener('bookingUpdated', function() {
-  console.log('📢 Turno modificado por usuario, actualizando métricas...');
-  setTimeout(loadTodayMetrics, 1000);
-});
-
-// Función para marcar turnos pasados como completados
-async function markOldBookingsAsCompleted() {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    const oldBookings = await fetch(
-      `${GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
-      { headers: { apikey: SUPA_KEY } }
-    ).then(r => r.json());
-    
-    if (oldBookings.length === 0) {
-      console.log('✅ No hay turnos pasados pendientes');
-      return { updated: 0, message: 'No hay turnos pendientes para marcar' };
-    }
-    
-    console.log(`📝 Encontrados ${oldBookings.length} turnos pasados pendientes`);
-    
-    const confirmUpdate = confirm(
-      `¿Marcar ${oldBookings.length} turnos pasados como "completados"?\n\n` +
-      `Esto mantendrá el historial pero los marcará como finalizados.`
-    );
-    
-    if (!confirmUpdate) return { updated: 0, message: 'Cancelado' };
-    
-    let updatedCount = 0;
-    for (const booking of oldBookings) {
-      try {
-        await fetch(`${GAS_URL}/bookings?id=eq.${booking.id}`, {
-          method: 'PATCH',
-          headers: { 
-            apikey: SUPA_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({ status: 'completed' })
+    // Verificar existencia
+    checkElements: function() {
+        const missing = [];
+        Object.entries(this).forEach(([key, element]) => {
+            if (element === null && key !== 'checkElements') {
+                console.warn(`⚠️ Elemento no encontrado: ${key}`);
+                missing.push(key);
+            }
         });
-        updatedCount++;
-        console.log(`✅ Marcado como completado: ${booking.date} ${booking.time} - ${booking.name}`);
-      } catch (err) {
-        console.error(`❌ Error actualizando ${booking.id}:`, err);
-      }
+        return missing.length === 0;
+    }
+};
+
+// ==============================
+// 2. MÓDULO DE OFERTAS
+// ==============================
+const OffersModule = {
+    /**
+     * Inicializa el formulario de ofertas
+     */
+    initForm: function() {
+        if (!DOM.offerForm) return;
+        
+        const now = new Date();
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const defaultDate = tomorrow.toISOString().split('T')[0];
+        
+        DOM.offerForm.innerHTML = `
+            <div class="admin-form-section">
+                <h3>🎁 Publicar Nueva Oferta</h3>
+                
+                <div class="form-group">
+                    <label for="offerText">Título de la oferta</label>
+                    <input type="text" id="offerText" placeholder="Ej: Corte + Barba" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="offerPrice">Precio especial ($)</label>
+                    <input type="number" id="offerPrice" placeholder="Precio en pesos" min="0" step="100" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="offerDescription">Descripción (opcional)</label>
+                    <textarea id="offerDescription" rows="3" placeholder="Detalles de la oferta..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="offerDuration">Duración estimada (minutos)</label>
+                    <input type="number" id="offerDuration" min="15" step="15" value="60">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="offerExpiresDate">📅 Válida hasta</label>
+                        <input type="date" id="offerExpiresDate" value="${defaultDate}">
+                    </div>
+                    <div class="form-group">
+                        <label for="offerExpiresTime">⏰ Hora límite</label>
+                        <input type="time" id="offerExpiresTime" value="23:59">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-submit">Publicar Oferta</button>
+                
+                <div id="offerStatus" class="status-message"></div>
+            </div>
+        `;
+        
+        DOM.offerForm.onsubmit = this.handleSubmit.bind(this);
+    },
+    
+    /**
+     * Maneja el envío del formulario
+     */
+    handleSubmit: async function(e) {
+        e.preventDefault();
+        
+        const statusDiv = document.getElementById('offerStatus');
+        this.showStatus(statusDiv, 'Publicando oferta...', 'loading');
+        
+        try {
+            const offerData = this.getFormData();
+            this.validateOfferData(offerData);
+            
+            await this.saveOffer(offerData);
+            
+            this.showStatus(statusDiv, '✅ Oferta publicada con cuenta regresiva', 'success');
+            this.resetForm();
+            
+            // Notificar a otras partes de la app
+            window.dispatchEvent(new CustomEvent('offersUpdated'));
+            
+            setTimeout(() => statusDiv.style.display = 'none', 3000);
+            
+        } catch (err) {
+            this.showStatus(statusDiv, `❌ Error: ${err.message}`, 'error');
+            console.error('Error en oferta:', err);
+        }
+    },
+    
+    /**
+     * Obtiene datos del formulario
+     */
+    getFormData: function() {
+        const getValue = (id) => {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        };
+        
+        const expiresDate = getValue('offerExpiresDate');
+        const expiresTime = getValue('offerExpiresTime');
+        const expiresAt = new Date(`${expiresDate}T${expiresTime}:00`);
+        
+        return {
+            text: getValue('offerText'),
+            price: Number(getValue('offerPrice')),
+            description: getValue('offerDescription') || null,
+            duration_minutes: Number(getValue('offerDuration') || 60),
+            expires_at: expiresAt.toISOString(),
+            active: true,
+            created_at: new Date().toISOString()
+        };
+    },
+    
+    /**
+     * Valida los datos de la oferta
+     */
+    validateOfferData: function(data) {
+        if (!data.text) throw new Error('El título es requerido');
+        if (!data.price || data.price <= 0) throw new Error('Precio inválido');
+        if (!data.expires_at) throw new Error('Fecha de expiración requerida');
+        
+        const expiresAt = new Date(data.expires_at);
+        if (expiresAt < new Date()) {
+            throw new Error('La fecha no puede ser en el pasado');
+        }
+    },
+    
+    /**
+     * Guarda la oferta en la API
+     */
+    saveOffer: async function(offerData) {
+        const response = await fetch(`${GAS_URL}/offers`, {
+            method: 'POST',
+            headers: { 
+                'apikey': SUPA_KEY, 
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(offerData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Error ${response.status}: ${error}`);
+        }
+        
+        return response.json();
+    },
+    
+    /**
+     * Muestra mensajes de estado
+     */
+    showStatus: function(element, message, type) {
+        if (!element) return;
+        
+        element.style.display = 'block';
+        element.textContent = message;
+        
+        // Limpiar clases anteriores
+        element.className = 'status-message';
+        
+        // Agregar clase según tipo
+        element.classList.add(`status-${type}`);
+    },
+    
+    /**
+     * Reinicia el formulario
+     */
+    resetForm: function() {
+        if (DOM.offerForm) DOM.offerForm.reset();
+    },
+    
+    /**
+     * Carga ofertas existentes
+     */
+    viewExisting: async function() {
+        try {
+            const response = await fetch(
+                `${GAS_URL}/offers?select=*&order=created_at.desc`,
+                { headers: { apikey: SUPA_KEY } }
+            );
+            
+            if (!response.ok) throw new Error('Error al cargar ofertas');
+            return await response.json();
+            
+        } catch (error) {
+            console.error('Error viendo ofertas:', error);
+            return [];
+        }
+    }
+};
+
+// ==============================
+// 3. MÓDULO DE MÉTRICAS
+// ==============================
+const MetricsModule = {
+    /**
+     * Carga las métricas del día actual
+     */
+    loadTodayMetrics: async function() {
+        if (!DOM.metricsDiv) return;
+        
+        try {
+            DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
+            
+            const today = new Date().toISOString().split('T')[0];
+            const endpoint = `${GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
+            
+            const response = await fetch(endpoint, {
+                headers: { apikey: SUPA_KEY }
+            });
+            
+            if (!response.ok) throw new Error('Error al cargar métricas');
+            
+            const bookings = await response.json();
+            this.displayMetrics(bookings);
+            this.displayTodayList(bookings);
+            
+        } catch (error) {
+            console.error('Error cargando métricas:', error);
+            DOM.metricsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+        }
+    },
+    
+    /**
+     * Muestra las métricas calculadas
+     */
+    displayMetrics: function(bookings) {
+        const total = bookings.length;
+        const completed = bookings.filter(b => b.status === 'completed').length;
+        const pending = bookings.filter(b => b.status === 'pending').length;
+        const cancelled = bookings.filter(b => b.status === 'cancelled').length;
+        
+        // Calcular ingresos estimados
+        const revenue = bookings.reduce((sum, booking) => {
+            return sum + (booking.services?.price || 0);
+        }, 0);
+        
+        DOM.metricsDiv.innerHTML = `
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h4>📅 Turnos Hoy</h4>
+                    <p class="metric-value">${total}</p>
+                </div>
+                <div class="metric-card">
+                    <h4>✅ Completados</h4>
+                    <p class="metric-value">${completed}</p>
+                </div>
+                <div class="metric-card">
+                    <h4>⏳ Pendientes</h4>
+                    <p class="metric-value">${pending}</p>
+                </div>
+                <div class="metric-card">
+                    <h4>💰 Ingresos Est.</h4>
+                    <p class="metric-value">$${revenue.toLocaleString()}</p>
+                </div>
+            </div>
+        `;
+    },
+    
+    /**
+     * Muestra la lista de turnos de hoy
+     */
+    displayTodayList: function(bookings) {
+        if (!DOM.todayList) return;
+        
+        if (bookings.length === 0) {
+            DOM.todayList.innerHTML = '<p class="empty-state">No hay turnos para hoy</p>';
+            return;
+        }
+        
+        // Ordenar por hora
+        const sortedBookings = bookings.sort((a, b) => 
+            a.time.localeCompare(b.time)
+        );
+        
+        DOM.todayList.innerHTML = sortedBookings.map(booking => `
+            <div class="booking-item" data-status="${booking.status}">
+                <div class="booking-time">${booking.time}</div>
+                <div class="booking-details">
+                    <strong>${booking.name}</strong>
+                    <span>${booking.phone || 'Sin teléfono'}</span>
+                    <small>${booking.services?.name || 'Servicio'}</small>
+                </div>
+                <div class="booking-status">
+                    <span class="status-badge">${booking.status}</span>
+                    ${booking.services?.price ? 
+                        `<span class="booking-price">$${booking.services.price}</span>` : 
+                        ''
+                    }
+                </div>
+            </div>
+        `).join('');
+    }
+};
+
+// ==============================
+// 4. MÓDULO DE PRECIOS
+// ==============================
+const PricesModule = {
+    /**
+     * Inicializa el formulario de precios
+     */
+    initForm: function() {
+        if (!DOM.priceForm) return;
+        
+        DOM.priceForm.onsubmit = this.handleSubmit.bind(this);
+    },
+    
+    /**
+     * Maneja el envío del formulario
+     */
+    handleSubmit: async function(e) {
+        e.preventDefault();
+        
+        try {
+            const serviceName = document.getElementById('serviceName')?.value;
+            const servicePrice = document.getElementById('servicePrice')?.value;
+            
+            if (!serviceName || !servicePrice) {
+                throw new Error('Complete todos los campos');
+            }
+            
+            await this.savePrice(serviceName, servicePrice);
+            
+            alert('✅ Precio guardado correctamente');
+            DOM.priceForm.reset();
+            
+            // Recargar servicios si la función existe
+            if (typeof window.reloadServices === 'function') {
+                await window.reloadServices();
+            }
+            
+        } catch (error) {
+            alert(`❌ Error: ${error.message}`);
+            console.error('Error guardando precio:', error);
+        }
+    },
+    
+    /**
+     * Guarda un precio en la base de datos
+     */
+    savePrice: async function(serviceName, price) {
+        const response = await fetch(`${GAS_URL}/prices`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPA_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                name: serviceName.trim(),
+                price: Number(price),
+                created_at: new Date().toISOString()
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status} al guardar precio`);
+        }
+        
+        return response;
+    }
+};
+
+// ==============================
+// 5. FUNCIONES UTILITARIAS
+// ==============================
+const AdminUtils = {
+    /**
+     * Marca turnos pasados como completados
+     */
+    markOldBookingsAsCompleted: async function() {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const response = await fetch(
+                `${GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
+                { headers: { apikey: SUPA_KEY } }
+            );
+            
+            if (!response.ok) throw new Error('Error al cargar turnos');
+            const oldBookings = await response.json();
+            
+            if (oldBookings.length === 0) {
+                return { updated: 0, message: '✅ No hay turnos pendientes' };
+            }
+            
+            const confirmUpdate = confirm(
+                `¿Marcar ${oldBookings.length} turnos pasados como "completados"?\n\n` +
+                `Esto mantendrá el historial pero los marcará como finalizados.`
+            );
+            
+            if (!confirmUpdate) {
+                return { updated: 0, message: '❌ Operación cancelada' };
+            }
+            
+            let updatedCount = 0;
+            for (const booking of oldBookings) {
+                try {
+                    await fetch(`${GAS_URL}/bookings?id=eq.${booking.id}`, {
+                        method: 'PATCH',
+                        headers: { 
+                            apikey: SUPA_KEY,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ status: 'completed' })
+                    });
+                    updatedCount++;
+                    console.log(`✅ ${booking.date} ${booking.time} - ${booking.name}`);
+                } catch (err) {
+                    console.error(`❌ Error en ${booking.id}:`, err);
+                }
+            }
+            
+            alert(`✅ ${updatedCount} turnos marcados como completados`);
+            MetricsModule.loadTodayMetrics(); // Actualizar vista
+            
+            return { 
+                updated: updatedCount, 
+                total: oldBookings.length,
+                message: `✅ ${updatedCount}/${oldBookings.length} turnos actualizados`
+            };
+            
+        } catch (error) {
+            console.error('❌ Error:', error);
+            alert('Error: ' + error.message);
+            throw error;
+        }
+    },
+    
+    /**
+     * Configura los listeners de eventos
+     */
+    setupEventListeners: function() {
+        // Botón de carga manual
+        if (DOM.loadBtn) {
+            DOM.loadBtn.onclick = () => MetricsModule.loadTodayMetrics();
+        }
+        
+        // Eventos personalizados
+        window.addEventListener('newBooking', () => {
+            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+        });
+        
+        window.addEventListener('bookingCancelled', () => {
+            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+        });
+        
+        window.addEventListener('bookingUpdated', () => {
+            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+        });
+    },
+    
+    /**
+     * Inicia el refresh automático
+     */
+    startAutoRefresh: function(interval = 30000) {
+        setInterval(() => {
+            MetricsModule.loadTodayMetrics();
+        }, interval);
+    }
+};
+
+// ==============================
+// 6. INICIALIZACIÓN
+// ==============================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Admin.js inicializando...');
+    
+    // Verificar elementos críticos
+    if (!DOM.checkElements()) {
+        console.warn('⚠️ Algunos elementos del admin no se encontraron');
     }
     
-    alert(`✅ ${updatedCount} turnos marcados como completados`);
-    console.log(`🎉 Actualización completada: ${updatedCount} turnos`);
+    // Verificar configuración
+    if (!GAS_URL || !SUPA_KEY) {
+        console.error('❌ ERROR: GAS_URL o SUPA_KEY no están definidos');
+        alert('Error de configuración. Verifica las variables de API.');
+        return;
+    }
     
-    return { updated: updatedCount, total: oldBookings.length };
+    // Inicializar módulos
+    OffersModule.initForm();
+    PricesModule.initForm();
+    AdminUtils.setupEventListeners();
     
-  } catch (error) {
-    console.error('❌ Error:', error);
-    alert('Error: ' + error.message);
-    throw error;
-  }
-}
+    // Cargar datos iniciales
+    MetricsModule.loadTodayMetrics();
+    
+    // Iniciar auto-refresh
+    AdminUtils.startAutoRefresh();
+    
+    console.log('✅ Admin.js inicializado correctamente');
+});
 
-// Función para ver ofertas existentes
-async function viewExistingOffers() {
-  try {
-    const offers = await fetch(`${GAS_URL}/offers?select=*&order=created_at.desc`, {
-      headers: { apikey: SUPA_KEY }
-    }).then(r => r.json());
-    
-    console.log('Ofertas existentes:', offers);
-    return offers;
-  } catch (error) {
-    console.error('Error viendo ofertas:', error);
-    return [];
-  }
-}
-
-// Función auxiliar para guardar precios (debes tenerla en db.js)
-async function savePrice(serviceName, price) {
-  if (!window.GAS_URL || !window.SUPA_KEY) {
-    throw new Error('Configuración de API no encontrada');
-  }
-  
-  const response = await fetch(`${GAS_URL}/prices`, {
-    method: 'POST',
-    headers: {
-      'apikey': SUPA_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify({
-      name: serviceName,
-      price: Number(price),
-      created_at: new Date().toISOString()
-    })
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Error ${response.status} al guardar precio`);
-  }
-  
-  return response;
-}
+// ==============================
+// 7. EXPORTAR AL ÁMBITO GLOBAL
+// ==============================
+window.AdminModule = {
+    loadMetrics: MetricsModule.loadTodayMetrics,
+    viewOffers: OffersModule.viewExisting,
+    markOldBookings: AdminUtils.markOldBookingsAsCompleted,
+    savePrice: PricesModule.savePrice
+};
 
 console.log('✅ admin.js cargado correctamente');
-
-// Exportar funciones para uso global
-window.markOldBookingsAsCompleted = markOldBookingsAsCompleted;
-window.viewExistingOffers = viewExistingOffers;
