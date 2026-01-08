@@ -361,7 +361,7 @@ const AdminToolsModule = {
 // ==============================
 // 3. MÓDULO DE OFERTAS
 // ==============================
-const OffersModule = {
+const AdminOffersModule = {
     /**
      * Inicializa el formulario de ofertas
      */
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', function() {
     AdminToolsModule.setupEventListeners();
     
     // Inicializar módulos principales
-    OffersModule.initForm();
+    AdminOffersModule.initForm();
     PricesModule.initForm();
     AdminUtils.setupEventListeners();
     
@@ -903,7 +903,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ==============================
 window.AdminModule = {
     loadMetrics: MetricsModule.loadTodayMetrics,
-    viewOffers: OffersModule.viewExisting,
+    viewOffers: AdminOffersModule.viewExisting,
     markOldBookings: AdminUtils.markOldBookingsAsCompleted,
     savePrice: PricesModule.savePrice
 };
