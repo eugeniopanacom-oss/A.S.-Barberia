@@ -872,4 +872,16 @@ window.AdminModule = {
 // Exportar funciones de herramientas
 window.AdminTools = AdminToolsModule;
 
+// ==============================
+// 9. FUNCIONES GLOBALES PARA ONCLICK EN HTML
+// ==============================
+// Estas funciones son necesarias porque el HTML usa onclick="markOldBookingsAsCompleted()"
+window.markOldBookingsAsCompleted = function() {
+    AdminToolsModule.markOldBookings();
+};
+
+window.viewExistingOffers = function() {
+    AdminToolsModule.viewExistingOffers();
+};
+
 console.log('✅ admin.js cargado correctamente - Herramientas administrativas disponibles');
