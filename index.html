@@ -11,7 +11,7 @@
 </head>
 <body>
   <header>
-    <h1>A.S. Barbería</h1>
+    <h1>A.S. Studio</h1>
     <button id="loginBtn" hidden>Iniciar sesión</button>
     <button id="logoutBtn" hidden>Cerrar sesión</button>
   </header>
@@ -91,10 +91,77 @@
     <section id="adminSection" hidden>
       <h2>Panel del administrador</h2>
       
-      <!-- ✅ HERRAMIENTAS ADMINISTRATIVAS -->
-      <!-- Se crearán automáticamente por admin.js en DOM.createAdminToolsSection() -->
-      <!-- No es necesario agregar nada aquí manualmente -->
-      
+      <!-- ✅ HERRAMIENTAS ADMINISTRATIVAS (AHORA EN HTML, NO DINÁMICO) -->
+      <div id="adminTools" style="
+        margin: 20px 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+      ">
+        <h3 style="margin-top: 0; color: #333;">🔧 Herramientas Administrativas</h3>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+          <button id="markOldBookingsBtn" style="
+            padding: 10px 15px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            📝 Marcar Turnos Pasados
+          </button>
+          
+          <button id="viewOffersBtn" style="
+            padding: 10px 15px;
+            background: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            👁️ Ver Ofertas Existentes
+          </button>
+          
+          <button id="refreshDataBtn" style="
+            padding: 10px 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          ">
+            🔄 Actualizar Todo
+          </button>
+        </div>
+        
+        <div id="toolsOutput" style="
+          margin-top: 15px;
+          padding: 15px;
+          background: white;
+          border-radius: 6px;
+          border: 1px solid #e9ecef;
+          display: none;
+        ">
+          <div id="toolsStatus"></div>
+          <div id="toolsContent" style="margin-top: 10px;"></div>
+        </div>
+      </div>
+      <!-- ✅ FIN DE HERRAMIENTAS ADMINISTRATIVAS -->
+
       <button id="loadMetrics">Cargar métricas</button>
       <div id="metrics"></div>
       <h3>Turnos de hoy</h3>

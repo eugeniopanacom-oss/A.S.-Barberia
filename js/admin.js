@@ -30,91 +30,18 @@ const DOM = {
     
     /**
      * Crear sección de herramientas administrativas
+     * AHORA SIMPLIFICADA - Solo verifica que exista el contenedor
      */
     createAdminToolsSection: function() {
-        // Verificar si ya existe
-        if (document.getElementById('adminTools')) return;
+        // Verificar si ya existe (ahora está en el HTML)
+        const existingContainer = document.getElementById('adminTools');
+        if (existingContainer) {
+            this.adminToolsContainer = existingContainer;
+            console.log('✅ Contenedor de herramientas ya existe en HTML');
+            return;
+        }
         
-        // Crear contenedor
-        const container = document.createElement('div');
-        container.id = 'adminTools';
-        container.style.cssText = `
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-        `;
-        
-        // Contenido HTML
-        container.innerHTML = `
-            <h3 style="margin-top: 0; color: #333;">🔧 Herramientas Administrativas</h3>
-            
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
-                <button id="markOldBookingsBtn" style="
-                    padding: 10px 15px;
-                    background: #6c757d;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
-                    📝 Marcar Turnos Pasados
-                </button>
-                
-                <button id="viewOffersBtn" style="
-                    padding: 10px 15px;
-                    background: #17a2b8;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
-                    👁️ Ver Ofertas Existentes
-                </button>
-                
-                <button id="refreshDataBtn" style="
-                    padding: 10px 15px;
-                    background: #28a745;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
-                    🔄 Actualizar Todo
-                </button>
-            </div>
-            
-            <div id="toolsOutput" style="
-                margin-top: 15px;
-                padding: 15px;
-                background: white;
-                border-radius: 6px;
-                border: 1px solid #e9ecef;
-                display: none;
-            ">
-                <div id="toolsStatus"></div>
-                <div id="toolsContent" style="margin-top: 10px;"></div>
-            </div>
-        `;
-        
-        // Insertar después del título o al principio de la sección admin
-        const adminSection = document.querySelector('section') || document.body;
-        adminSection.insertBefore(container, adminSection.firstChild);
-        
-        this.adminToolsContainer = container;
+        console.warn('⚠️ Contenedor de herramientas no encontrado en HTML');
     }
 };
 
@@ -839,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Crear sección de herramientas administrativas
+    // Crear/verificar sección de herramientas administrativas
     DOM.createAdminToolsSection();
     
     // Configurar eventos de herramientas
@@ -873,9 +800,8 @@ window.AdminModule = {
 window.AdminTools = AdminToolsModule;
 
 // ==============================
-// 9. FUNCIONES GLOBALES PARA ONCLICK EN HTML
+// 9. FUNCIONES GLOBALES PARA COMPATIBILIDAD
 // ==============================
-// Estas funciones son necesarias porque el HTML usa onclick="markOldBookingsAsCompleted()"
 window.markOldBookingsAsCompleted = function() {
     AdminToolsModule.markOldBookings();
 };
