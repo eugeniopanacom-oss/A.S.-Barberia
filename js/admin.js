@@ -111,13 +111,12 @@ const AdminToolsModule = {
         try {
             const today = new Date().toISOString().split('T')[0];
             
-            // Obtener turnos pasados pendientes
-            console.log('📡 Consultando turnos pasados...');
-             const response = await fetch(
-        `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,(
-                `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
-                { headers: { apikey: ADMIN_SUPA_KEY } }
-            );
+        // Obtener turnos pasados pendientes
+        console.log('📡 Consultando turnos pasados...');
+        const response = await fetch(
+            `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
+            { headers: { apikey: ADMIN_SUPA_KEY } }
+        );
             
             console.log('📊 Estado respuesta:', response.status);
             
