@@ -32,6 +32,12 @@ console.log('🔧 Admin.js - URLs finales:', {
 });
 
 // ==============================
+// 0.5. VARIABLE GLOBAL PARA LA TABLA (AJUSTAR SEGÚN TU BASE DE DATOS)
+// ==============================
+const TABLA_TURNOS = 'bookings'; // ⚠️ CAMBIA ESTO SI TU TABLA SE LLAMA DE OTRA FORMA
+console.log(`📊 Usando tabla de turnos: "${TABLA_TURNOS}"`);
+
+// ==============================
 // 1. ELEMENTOS DEL DOM (RENOMBRADO PARA EVITAR CONFLICTO)
 // ==============================
 const ADMIN_DOM = {
@@ -46,6 +52,14 @@ const ADMIN_DOM = {
     get toolsOutput() { return document.getElementById('toolsOutput'); },
     get toolsStatus() { return document.getElementById('toolsStatus'); },
     get toolsContent() { return document.getElementById('toolsContent'); },
+    get refreshTodayBtn() { return document.getElementById('refreshTodayBtn'); },
+    get exportTodayBtn() { return document.getElementById('exportTodayBtn'); },
+    get filterAllBtn() { return document.getElementById('filter-all'); },
+    get filterPendingBtn() { return document.getElementById('filter-pending'); },
+    get filterCompletedBtn() { return document.getElementById('filter-completed'); },
+    get turnosCounter() { return document.getElementById('turnosHoyCounter'); },
+    get fechaActual() { return document.getElementById('fecha-actual'); },
+    
     adminToolsContainer: null,
     
     /**
@@ -87,6 +101,460 @@ const ADMIN_DOM = {
 };
 
 // ==============================
+// 1.5. MÓDULO DE GESTIÓN DE TURNOS DEL DÍA (NUEVO)
+// ==============================
+const TurnosDiaModule = {
+    filtroActual: 'all',
+    
+    /**
+     * Carga los turnos del día actual
+     */
+    cargarTurnosHoy: async function() {
+        try {
+            const hoy = new Date().toISOString().split('T')[0];
+            
+            console.log(`📅 Cargando turnos del día ${hoy}...`);
+            
+            const response = await fetch(
+                `${ADMIN_GAS_URL}/${TABLA_TURNOS}?date=eq.${hoy}&select=*&order=time.asc`,
+                { headers: { apikey: ADMIN_SUPA_KEY } }
+            );
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status} al cargar turnos`);
+            }
+            
+            const turnos = await response.json();
+            console.log(`✅ ${turnos.length} turnos cargados para hoy`);
+            
+            this.mostrarTurnosHoy(turnos);
+            this.actualizarContadores(turnos);
+            this.actualizarFechaActual();
+            
+            return turnos;
+            
+        } catch (error) {
+            console.error('❌ Error cargando turnos:', error);
+            this.mostrarError('Error cargando turnos. Intenta de nuevo.');
+            throw error;
+        }
+    },
+    
+    /**
+     * Muestra los turnos en el HTML
+     */
+    mostrarTurnosHoy: function(turnos) {
+        const container = ADMIN_DOM.todayList;
+        if (!container) {
+            console.warn('⚠️ Contenedor todayList no encontrado');
+            return;
+        }
+        
+        if (!turnos || turnos.length === 0) {
+            container.innerHTML = `
+                <div class="sin-turnos" style="
+                    text-align: center;
+                    padding: 40px 20px;
+                    color: #666;
+                    font-style: italic;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                ">
+                    <p style="font-size: 18px; margin-bottom: 10px;">🎉 No hay turnos programados para hoy</p>
+                    <p>Puedes tomar un descanso ☕</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        turnos.forEach(turno => {
+            const estaCompletado = turno.completed === true;
+            const badge = estaCompletado 
+                ? '<span style="background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">✅ Completado</span>' 
+                : '<span style="background: #fff3cd; color: #856404; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">⏳ Pendiente</span>';
+            
+            const hora = turno.time || 'Sin hora';
+            const precio = turno.price ? `$${turno.price}` : 'Consultar';
+            const estadoGeneral = turno.status || 'pending';
+            
+            html += `
+                <div class="turno-card" id="turno-${turno.id}" data-status="${estaCompletado ? 'completed' : 'pending'}" style="
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin: 10px 0;
+                    background: white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    transition: all 0.3s;
+                    ${estaCompletado ? 'opacity: 0.7; background: #f8f9fa;' : ''}
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                        <div>
+                            <div style="font-weight: bold; color: #333; font-size: 18px;">⏰ ${hora}</div>
+                            <h4 style="margin: 5px 0 0 0; color: #2c3e50;">${turno.name || 'Cliente sin nombre'}</h4>
+                        </div>
+                        ${badge}
+                    </div>
+                    
+                    <div style="color: #555; font-size: 14px; margin: 5px 0;">
+                        <div><strong>📌 Servicio:</strong> ${turno.service || 'No especificado'}</div>
+                        <div><strong>💰 Precio:</strong> ${precio}</div>
+                        <div><strong>✉️ Email:</strong> ${turno.email || 'No proporcionado'}</div>
+                        ${estadoGeneral !== 'pending' ? `<div><strong>📝 Estado:</strong> ${estadoGeneral}</div>` : ''}
+                    </div>
+                    
+                    ${!estaCompletado ? `
+                        <div style="margin-top: 15px; text-align: right;">
+                            <button onclick="TurnosDiaModule.marcarComoCompletado(${turno.id})" style="
+                                background: #10b981;
+                                color: white;
+                                border: none;
+                                padding: 8px 16px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-weight: 500;
+                                font-size: 14px;
+                                transition: background 0.3s;
+                            ">
+                                ✅ Marcar como hecho
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        
+        // Aplicar filtro actual
+        this.aplicarFiltro();
+    },
+    
+    /**
+     * Actualiza los contadores de turnos
+     */
+    actualizarContadores: function(turnos) {
+        const total = turnos.length;
+        const completados = turnos.filter(t => t.completed === true).length;
+        const pendientes = total - completados;
+        
+        if (ADMIN_DOM.turnosCounter) {
+            ADMIN_DOM.turnosCounter.innerHTML = `
+                <span id="turnos-total">${total} turnos total</span> | 
+                <span style="color: #10b981;">✅ <span id="turnos-completados">${completados}</span> completados</span> | 
+                <span style="color: #f59e0b;">⏳ <span id="turnos-pendientes">${pendientes}</span> pendientes</span>
+            `;
+        }
+    },
+    
+    /**
+     * Actualiza la fecha actual en el panel
+     */
+    actualizarFechaActual: function() {
+        if (ADMIN_DOM.fechaActual) {
+            const fecha = new Date().toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            ADMIN_DOM.fechaActual.textContent = fecha;
+        }
+    },
+    
+    /**
+     * Marca un turno como completado
+     */
+    marcarComoCompletado: async function(turnoId) {
+        if (!confirm('¿Marcar este turno como completado?\n\nEsta acción no se puede deshacer.')) return;
+        
+        try {
+            const { error } = await supabase
+                .from(TABLA_TURNOS)
+                .update({ completed: true })
+                .eq('id', turnoId);
+
+            if (error) throw error;
+            
+            // Actualizar la vista
+            const turnoElement = document.getElementById(`turno-${turnoId}`);
+            if (turnoElement) {
+                // Cambiar el badge
+                const badgeHtml = '<span style="background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">✅ Completado</span>';
+                const headerDiv = turnoElement.querySelector('div[style*="display: flex; justify-content: space-between"]');
+                if (headerDiv && headerDiv.children.length > 1) {
+                    headerDiv.children[1].outerHTML = badgeHtml;
+                }
+                
+                // Remover el botón
+                const buttonElement = turnoElement.querySelector('button');
+                if (buttonElement) {
+                    buttonElement.remove();
+                }
+                
+                // Agregar estilo de completado
+                turnoElement.style.opacity = '0.7';
+                turnoElement.style.background = '#f8f9fa';
+                turnoElement.setAttribute('data-status', 'completed');
+                
+                // Actualizar contadores y lista
+                setTimeout(() => {
+                    this.cargarTurnosHoy();
+                }, 300);
+            }
+            
+            // Mostrar notificación
+            this.mostrarNotificacion('✅ Turno marcado como completado', 'success');
+            
+            // Actualizar también las métricas generales
+            if (typeof MetricsModule.loadTodayMetrics === 'function') {
+                setTimeout(() => MetricsModule.loadTodayMetrics(), 500);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error:', error);
+            this.mostrarNotificacion('❌ Error al marcar el turno', 'error');
+        }
+    },
+    
+    /**
+     * Muestra una notificación
+     */
+    mostrarNotificacion: function(mensaje, tipo = 'success') {
+        // Si ya existe una notificación, quitarla
+        const notificacionExistente = document.querySelector('.notificacion-flotante');
+        if (notificacionExistente) {
+            notificacionExistente.remove();
+        }
+        
+        const notificacion = document.createElement('div');
+        notificacion.className = 'notificacion-flotante';
+        notificacion.textContent = mensaje;
+        notificacion.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${tipo === 'error' ? '#dc3545' : '#28a745'};
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        
+        document.body.appendChild(notificacion);
+        
+        setTimeout(() => {
+            notificacion.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (notificacion.parentNode) {
+                    notificacion.parentNode.removeChild(notificacion);
+                }
+            }, 300);
+        }, 3000);
+    },
+    
+    /**
+     * Aplica el filtro actual a los turnos
+     */
+    aplicarFiltro: function() {
+        const turnos = document.querySelectorAll('.turno-card');
+        turnos.forEach(turno => {
+            const status = turno.getAttribute('data-status');
+            
+            switch (this.filtroActual) {
+                case 'all':
+                    turno.style.display = 'block';
+                    break;
+                case 'pending':
+                    turno.style.display = status === 'pending' ? 'block' : 'none';
+                    break;
+                case 'completed':
+                    turno.style.display = status === 'completed' ? 'block' : 'none';
+                    break;
+            }
+        });
+        
+        // Actualizar botones de filtro
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeBtn = document.getElementById(`filter-${this.filtroActual}`);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+        }
+    },
+    
+    /**
+     * Cambia el filtro actual
+     */
+    cambiarFiltro: function(nuevoFiltro) {
+        this.filtroActual = nuevoFiltro;
+        this.aplicarFiltro();
+    },
+    
+    /**
+     * Exporta los turnos del día a CSV
+     */
+    exportarACSV: async function() {
+        try {
+            const turnos = await this.cargarTurnosHoy();
+            
+            if (turnos.length === 0) {
+                this.mostrarNotificacion('📭 No hay turnos para exportar', 'info');
+                return;
+            }
+            
+            // Crear contenido CSV
+            let csv = 'Hora,Nombre,Servicio,Precio,Email,Estado\n';
+            
+            turnos.forEach(turno => {
+                const estado = turno.completed ? 'Completado' : 'Pendiente';
+                const hora = turno.time || '';
+                const nombre = turno.name || '';
+                const servicio = turno.service || '';
+                const precio = turno.price || '';
+                const email = turno.email || '';
+                
+                csv += `"${hora}","${nombre}","${servicio}","${precio}","${email}","${estado}"\n`;
+            });
+            
+            // Descargar archivo
+            const hoy = new Date().toISOString().split('T')[0];
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `turnos-${hoy}.csv`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            this.mostrarNotificacion('📊 Turnos exportados correctamente', 'success');
+            
+        } catch (error) {
+            console.error('❌ Error exportando:', error);
+            this.mostrarNotificacion('❌ Error al exportar', 'error');
+        }
+    },
+    
+    /**
+     * Configura los eventos para este módulo
+     */
+    configurarEventos: function() {
+        // Botón de actualizar
+        if (ADMIN_DOM.refreshTodayBtn) {
+            ADMIN_DOM.refreshTodayBtn.addEventListener('click', () => this.cargarTurnosHoy());
+        }
+        
+        // Botón de exportar
+        if (ADMIN_DOM.exportTodayBtn) {
+            ADMIN_DOM.exportTodayBtn.addEventListener('click', () => this.exportarACSV());
+        }
+        
+        // Botones de filtro
+        if (ADMIN_DOM.filterAllBtn) {
+            ADMIN_DOM.filterAllBtn.addEventListener('click', () => this.cambiarFiltro('all'));
+        }
+        
+        if (ADMIN_DOM.filterPendingBtn) {
+            ADMIN_DOM.filterPendingBtn.addEventListener('click', () => this.cambiarFiltro('pending'));
+        }
+        
+        if (ADMIN_DOM.filterCompletedBtn) {
+            ADMIN_DOM.filterCompletedBtn.addEventListener('click', () => this.cambiarFiltro('completed'));
+        }
+        
+        // También usar el botón "Actualizar Todo"
+        if (ADMIN_DOM.refreshBtn) {
+            const originalRefresh = ADMIN_DOM.refreshBtn.onclick;
+            ADMIN_DOM.refreshBtn.onclick = () => {
+                if (originalRefresh) originalRefresh();
+                this.cargarTurnosHoy();
+            };
+        }
+    },
+    
+    /**
+     * Inicializa el módulo
+     */
+    inicializar: function() {
+        console.log('🔄 Inicializando módulo de turnos del día...');
+        
+        // Configurar eventos
+        this.configurarEventos();
+        
+        // Agregar estilos CSS dinámicamente si no existen
+        if (!document.querySelector('style#turnos-dia-styles')) {
+            const style = document.createElement('style');
+            style.id = 'turnos-dia-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+                .filter-btn {
+                    opacity: 0.7;
+                    transition: opacity 0.3s;
+                }
+                .filter-btn.active {
+                    opacity: 1;
+                    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+                }
+                .turno-card:hover {
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        console.log('✅ Módulo de turnos del día inicializado');
+    },
+    
+    /**
+     * Muestra un error en el contenedor
+     */
+    mostrarError: function(mensaje) {
+        const container = ADMIN_DOM.todayList;
+        if (container) {
+            container.innerHTML = `
+                <div style="
+                    text-align: center;
+                    padding: 30px;
+                    color: #dc3545;
+                    background: #f8d7da;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                ">
+                    <p style="font-weight: bold;">❌ ${mensaje}</p>
+                    <button onclick="TurnosDiaModule.cargarTurnosHoy()" style="
+                        background: #dc3545;
+                        color: white;
+                        border: none;
+                        padding: 8px 15px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        margin-top: 10px;
+                    ">
+                        Reintentar
+                    </button>
+                </div>
+            `;
+        }
+    }
+};
+
+// ==============================
 // 2. MÓDULO DE HERRAMIENTAS ADMINISTRATIVAS
 // ==============================
 const AdminToolsModule = {
@@ -111,12 +579,12 @@ const AdminToolsModule = {
         try {
             const today = new Date().toISOString().split('T')[0];
             
-        // Obtener turnos pasados pendientes
-        console.log('📡 Consultando turnos pasados...');
-        const response = await fetch(
-            `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
-            { headers: { apikey: ADMIN_SUPA_KEY } }
-        );
+            // Obtener turnos pasados pendientes
+            console.log('📡 Consultando turnos pasados...');
+            const response = await fetch(
+                `${ADMIN_GAS_URL}/${TABLA_TURNOS}?date=lt.${today}&status=eq.pending&select=id,date,name,time,service`,
+                { headers: { apikey: ADMIN_SUPA_KEY } }
+            );
             
             console.log('📊 Estado respuesta:', response.status);
             
@@ -176,7 +644,7 @@ const AdminToolsModule = {
             
             for (const booking of oldBookings) {
                 try {
-                    const updateResponse = await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
+                    const updateResponse = await fetch(`${ADMIN_GAS_URL}/${TABLA_TURNOS}?id=eq.${booking.id}`, {
                         method: 'PATCH',
                         headers: { 
                             apikey: ADMIN_SUPA_KEY,
@@ -208,8 +676,11 @@ const AdminToolsModule = {
             resultsHTML += '</div>';
             contentDiv.innerHTML += resultsHTML;
             
-            // Actualizar métricas
-            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+            // Actualizar métricas y turnos del día
+            setTimeout(() => {
+                MetricsModule.loadTodayMetrics();
+                TurnosDiaModule.cargarTurnosHoy();
+            }, 1000);
             
         } catch (error) {
             console.error('❌ Error en markOldBookings:', error);
@@ -340,6 +811,7 @@ const AdminToolsModule = {
             console.log('✅ Configurando botón refreshDataBtn');
             refreshBtn.addEventListener('click', () => {
                 MetricsModule.loadTodayMetrics();
+                TurnosDiaModule.cargarTurnosHoy();
                 const output = ADMIN_DOM.toolsOutput;
                 const statusDiv = ADMIN_DOM.toolsStatus;
                 if (output && statusDiv) {
@@ -579,7 +1051,7 @@ const MetricsModule = {
             ADMIN_DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
             
             const today = new Date().toISOString().split('T')[0];
-            const endpoint = `${ADMIN_GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
+            const endpoint = `${ADMIN_GAS_URL}/${TABLA_TURNOS}?date=eq.${today}&select=*,services(name,price)`;
             
             console.log('📡 Consultando métricas para:', today);
             const response = await fetch(endpoint, {
@@ -594,7 +1066,7 @@ const MetricsModule = {
             console.log(`📊 ${bookings.length} turnos encontrados para hoy`);
             
             this.displayMetrics(bookings);
-            this.displayTodayList(bookings);
+            // No mostramos la lista aquí porque ahora lo hace TurnosDiaModule
             
         } catch (error) {
             console.error('Error cargando métricas:', error);
@@ -639,38 +1111,11 @@ const MetricsModule = {
     },
     
     /**
-     * Muestra la lista de turnos de hoy
+     * Muestra la lista de turnos de hoy (ahora obsoleto - se usa TurnosDiaModule)
      */
     displayTodayList: function(bookings) {
-        if (!ADMIN_DOM.todayList) return;
-        
-        if (bookings.length === 0) {
-            ADMIN_DOM.todayList.innerHTML = '<p class="empty-state">No hay turnos para hoy</p>';
-            return;
-        }
-        
-        // Ordenar por hora
-        const sortedBookings = bookings.sort((a, b) => 
-            a.time.localeCompare(b.time)
-        );
-        
-        ADMIN_DOM.todayList.innerHTML = sortedBookings.map(booking => `
-            <div class="booking-item" data-status="${booking.status}">
-                <div class="booking-time">${booking.time}</div>
-                <div class="booking-details">
-                    <strong>${booking.name}</strong>
-                    <span>${booking.phone || 'Sin teléfono'}</span>
-                    <small>${booking.services?.name || 'Servicio'}</small>
-                </div>
-                <div class="booking-status">
-                    <span class="status-badge">${booking.status}</span>
-                    ${booking.services?.price ? 
-                        `<span class="booking-price">$${booking.services.price}</span>` : 
-                        ''
-                    }
-                </div>
-            </div>
-        `).join('');
+        // Esta función ahora está obsoleta, se usa TurnosDiaModule.mostrarTurnosHoy()
+        console.log('⚠️ displayTodayList obsoleto, usar TurnosDiaModule.mostrarTurnosHoy()');
     }
 };
 
@@ -762,7 +1207,7 @@ const AdminUtils = {
             const today = new Date().toISOString().split('T')[0];
             
             const response = await fetch(
-                `${ADMIN_GAS_URL}/bookings?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
+                `${ADMIN_GAS_URL}/${TABLA_TURNOS}?date=lt.${today}&status=eq.pending&select=id,date,name,time`,
                 { headers: { apikey: ADMIN_SUPA_KEY } }
             );
             
@@ -785,7 +1230,7 @@ const AdminUtils = {
             let updatedCount = 0;
             for (const booking of oldBookings) {
                 try {
-                    await fetch(`${ADMIN_GAS_URL}/bookings?id=eq.${booking.id}`, {
+                    await fetch(`${ADMIN_GAS_URL}/${TABLA_TURNOS}?id=eq.${booking.id}`, {
                         method: 'PATCH',
                         headers: { 
                             apikey: ADMIN_SUPA_KEY,
@@ -801,7 +1246,10 @@ const AdminUtils = {
             }
             
             alert(`✅ ${updatedCount} turnos marcados como completados`);
-            MetricsModule.loadTodayMetrics(); // Actualizar vista
+            
+            // Actualizar ambas vistas
+            MetricsModule.loadTodayMetrics();
+            TurnosDiaModule.cargarTurnosHoy();
             
             return { 
                 updated: updatedCount, 
@@ -827,15 +1275,24 @@ const AdminUtils = {
         
         // Eventos personalizados
         window.addEventListener('newBooking', () => {
-            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+            setTimeout(() => {
+                MetricsModule.loadTodayMetrics();
+                TurnosDiaModule.cargarTurnosHoy();
+            }, 1000);
         });
         
         window.addEventListener('bookingCancelled', () => {
-            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+            setTimeout(() => {
+                MetricsModule.loadTodayMetrics();
+                TurnosDiaModule.cargarTurnosHoy();
+            }, 1000);
         });
         
         window.addEventListener('bookingUpdated', () => {
-            setTimeout(() => MetricsModule.loadTodayMetrics(), 1000);
+            setTimeout(() => {
+                MetricsModule.loadTodayMetrics();
+                TurnosDiaModule.cargarTurnosHoy();
+            }, 1000);
         });
     },
     
@@ -846,6 +1303,7 @@ const AdminUtils = {
         console.log('⏰ Iniciando auto-refresh cada', interval/1000, 'segundos');
         setInterval(() => {
             MetricsModule.loadTodayMetrics();
+            TurnosDiaModule.cargarTurnosHoy();
         }, interval);
     }
 };
@@ -879,10 +1337,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar módulos principales
     AdminOffersModule.initForm();
     PricesModule.initForm();
+    TurnosDiaModule.inicializar(); // <-- NUEVO: Inicializar gestión de turnos
     AdminUtils.setupEventListeners();
     
     // Cargar datos iniciales
     MetricsModule.loadTodayMetrics();
+    TurnosDiaModule.cargarTurnosHoy(); // <-- NUEVO: Cargar turnos del día
     
     // Iniciar auto-refresh
     AdminUtils.startAutoRefresh();
@@ -892,7 +1352,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verificación final
     setTimeout(() => {
         console.log('🧪 Verificación final:');
-        console.log('- AdminToolsModule:', typeof AdminToolsModule);
+        console.log('- Tabla de turnos:', TABLA_TURNOS);
+        console.log('- TurnosDiaModule:', typeof TurnosDiaModule);
         console.log('- Botón ver ofertas:', ADMIN_DOM.viewOffersBtn ? '✅ Encontrado' : '❌ No encontrado');
         console.log('- API URL:', ADMIN_GAS_URL);
     }, 500);
@@ -905,11 +1366,14 @@ window.AdminModule = {
     loadMetrics: MetricsModule.loadTodayMetrics,
     viewOffers: AdminOffersModule.viewExisting,
     markOldBookings: AdminUtils.markOldBookingsAsCompleted,
-    savePrice: PricesModule.savePrice
+    savePrice: PricesModule.savePrice,
+    cargarTurnosHoy: TurnosDiaModule.cargarTurnosHoy, // <-- NUEVO
+    marcarComoCompletado: TurnosDiaModule.marcarComoCompletado // <-- NUEVO
 };
 
 // Exportar funciones de herramientas
 window.AdminTools = AdminToolsModule;
+window.TurnosDia = TurnosDiaModule; // <-- NUEVO
 
 // ==============================
 // 9. FUNCIONES GLOBALES PARA COMPATIBILIDAD
@@ -920,6 +1384,15 @@ window.markOldBookingsAsCompleted = function() {
 
 window.viewExistingOffers = function() {
     AdminToolsModule.viewExistingOffers();
+};
+
+// NUEVAS FUNCIONES GLOBALES
+window.cargarTurnosDelDia = function() {
+    return TurnosDiaModule.cargarTurnosHoy();
+};
+
+window.marcarTurnoCompletado = function(turnoId) {
+    return TurnosDiaModule.marcarComoCompletado(turnoId);
 };
 
 console.log('✅ admin.js cargado correctamente - Herramientas administrativas disponibles');

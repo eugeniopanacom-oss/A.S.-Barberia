@@ -8,6 +8,115 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    /* Estilos para la sección mejorada de turnos */
+    .turno-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      transition: all 0.3s;
+    }
+    
+    .turno-card:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .turno-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    
+    .turno-time {
+      font-weight: bold;
+      color: #333;
+      font-size: 18px;
+    }
+    
+    .turno-name {
+      font-weight: bold;
+      color: #2c3e50;
+      margin: 0;
+    }
+    
+    .turno-details {
+      color: #555;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+    
+    .turno-details strong {
+      color: #333;
+    }
+    
+    .btn-completar {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    
+    .btn-completar:hover {
+      background: #0da271;
+    }
+    
+    .btn-completar:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .sin-turnos {
+      text-align: center;
+      padding: 40px 20px;
+      color: #666;
+      font-style: italic;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .completado-badge {
+      background: #d4edda;
+      color: #155724;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .pendiente-badge {
+      background: #fff3cd;
+      color: #856404;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .turnos-counter {
+      background: #f8f9fa;
+      padding: 12px 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-weight: bold;
+      color: #333;
+      border-left: 4px solid #667eea;
+    }
+    
+    .completed-fade {
+      opacity: 0.6;
+      background: #f8f9fa;
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -164,8 +273,116 @@
 
       <button id="loadMetrics">Cargar métricas</button>
       <div id="metrics"></div>
-      <h3>Turnos de hoy</h3>
-      <ul id="todayList"></ul>
+      
+      <!-- ✅ SECCIÓN MEJORADA DE TURNOS DEL DÍA -->
+      <div style="
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+      ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+            📅 Turnos de hoy - <span id="fecha-actual"></span>
+          </h3>
+          <div style="display: flex; gap: 10px;">
+            <button id="refreshTodayBtn" style="
+              background: #007bff;
+              color: white;
+              border: none;
+              padding: 8px 15px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+              display: flex;
+              align-items: center;
+              gap: 5px;
+            ">
+              🔄 Actualizar
+            </button>
+            <button id="exportTodayBtn" style="
+              background: #28a745;
+              color: white;
+              border: none;
+              padding: 8px 15px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+              display: flex;
+              align-items: center;
+              gap: 5px;
+            ">
+              📊 Exportar
+            </button>
+          </div>
+        </div>
+        
+        <!-- Contador de turnos -->
+        <div id="turnosHoyCounter" class="turnos-counter">
+          <span id="turnos-total">Cargando...</span> | 
+          <span style="color: #10b981;">✅ <span id="turnos-completados">0</span> completados</span> | 
+          <span style="color: #f59e0b;">⏳ <span id="turnos-pendientes">0</span> pendientes</span>
+        </div>
+        
+        <!-- Filtros -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+          <button id="filter-all" class="filter-btn active" style="
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">
+            Todos
+          </button>
+          <button id="filter-pending" class="filter-btn" style="
+            padding: 6px 12px;
+            background: #f59e0b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">
+            Solo pendientes
+          </button>
+          <button id="filter-completed" class="filter-btn" style="
+            padding: 6px 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">
+            Solo completados
+          </button>
+        </div>
+        
+        <!-- Lista de turnos -->
+        <div id="todayList">
+          <!-- Los turnos se cargarán aquí dinámicamente -->
+          <div class="sin-turnos">Cargando turnos del día...</div>
+        </div>
+        
+        <!-- Nota -->
+        <div style="
+          margin-top: 20px;
+          padding: 12px;
+          background: #f8f9fa;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #666;
+          border-left: 3px solid #667eea;
+        ">
+          💡 Haz clic en "✅ Hecho" para marcar un turno como completado. Los turnos completados se pueden ver en el historial.
+        </div>
+      </div>
+      <!-- ✅ FIN DE SECCIÓN MEJORADA -->
       
       <h3>Publicar oferta</h3>
       <form id="offerForm">
@@ -189,6 +406,302 @@
   <script src="js/admin.js"></script>
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    
+    // Código adicional para gestionar turnos del día
+    document.addEventListener('DOMContentLoaded', function() {
+      // Mostrar fecha actual
+      const fechaActual = new Date().toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const fechaElement = document.getElementById('fecha-actual');
+      if (fechaElement) {
+        fechaElement.textContent = fechaActual;
+      }
+      
+      // Función para cargar turnos del día (se debe integrar con tu código existente)
+      window.cargarTurnosHoy = async function() {
+        try {
+          const hoy = new Date().toISOString().split('T')[0];
+          
+          // Usar la tabla correcta (reemplaza 'appointments' con el nombre real = bookings)
+          const { data, error } = await supabase
+            .from('bookings') // ⚠️ CAMBIA ESTO POR TU TABLA REAL
+            .select('*')
+            .eq('date', hoy)
+            .order('time', { ascending: true });
+
+          if (error) throw error;
+          
+          mostrarTurnosHoy(data);
+          actualizarContadores(data);
+          
+        } catch (error) {
+          console.error('Error cargando turnos:', error);
+          const container = document.getElementById('todayList');
+          if (container) {
+            container.innerHTML = '<div class="sin-turnos" style="color: #dc3545;">Error cargando turnos. Intenta de nuevo.</div>';
+          }
+        }
+      };
+      
+      // Función para mostrar turnos
+      function mostrarTurnosHoy(turnos) {
+        const container = document.getElementById('todayList');
+        if (!container) return;
+        
+        if (!turnos || turnos.length === 0) {
+          container.innerHTML = '<div class="sin-turnos">🎉 No hay turnos programados para hoy</div>';
+          return;
+        }
+        
+        let html = '';
+        
+        turnos.forEach(turno => {
+          const estaCompletado = turno.completed === true;
+          const badge = estaCompletado 
+            ? '<span class="completado-badge">✅ Completado</span>' 
+            : '<span class="pendiente-badge">⏳ Pendiente</span>';
+          
+          const hora = turno.time || 'Sin hora';
+          const precio = turno.price ? `$${turno.price}` : 'Consultar';
+          
+          html += `
+            <div class="turno-card ${estaCompletado ? 'completed-fade' : ''}" id="turno-${turno.id}" data-status="${estaCompletado ? 'completed' : 'pending'}">
+              <div class="turno-header">
+                <div>
+                  <div class="turno-time">⏰ ${hora}</div>
+                  <h4 class="turno-name">${turno.name || 'Cliente sin nombre'}</h4>
+                </div>
+                ${badge}
+              </div>
+              
+              <div class="turno-details">
+                <div><strong>📌 Servicio:</strong> ${turno.service || 'No especificado'}</div>
+                <div><strong>💰 Precio:</strong> ${precio}</div>
+                <div><strong>✉️ Email:</strong> ${turno.email || 'No proporcionado'}</div>
+                ${turno.status && turno.status !== 'pending' ? `<div><strong>📝 Estado:</strong> ${turno.status}</div>` : ''}
+              </div>
+              
+              ${!estaCompletado ? `
+                <div style="margin-top: 15px; text-align: right;">
+                  <button class="btn-completar" onclick="marcarTurnoCompletado(${turno.id})">
+                    ✅ Marcar como hecho
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+        
+        container.innerHTML = html;
+        
+        // Aplicar filtro actual
+        aplicarFiltro();
+      }
+      
+      // Función para actualizar contadores
+      function actualizarContadores(turnos) {
+        const total = turnos.length;
+        const completados = turnos.filter(t => t.completed === true).length;
+        const pendientes = total - completados;
+        
+        const totalElement = document.getElementById('turnos-total');
+        const completadosElement = document.getElementById('turnos-completados');
+        const pendientesElement = document.getElementById('turnos-pendientes');
+        
+        if (totalElement) totalElement.textContent = `${total} turnos total`;
+        if (completadosElement) completadosElement.textContent = completados;
+        if (pendientesElement) pendientesElement.textContent = pendientes;
+      }
+      
+      // Función para marcar turno como completado (global)
+      window.marcarTurnoCompletado = async function(turnoId) {
+        if (!confirm('¿Marcar este turno como completado?\n\nEsta acción no se puede deshacer.')) return;
+        
+        try {
+          const { error } = await supabase
+            .from('bookings') // ⚠️ CAMBIA ESTO POR TU TABLA REAL
+            .update({ completed: true })
+            .eq('id', turnoId);
+
+          if (error) throw error;
+          
+          // Actualizar la vista
+          const turnoElement = document.getElementById(`turno-${turnoId}`);
+          if (turnoElement) {
+            // Cambiar el badge
+            const badgeElement = turnoElement.querySelector('.pendiente-badge');
+            if (badgeElement) {
+              badgeElement.outerHTML = '<span class="completado-badge">✅ Completado</span>';
+            }
+            
+            // Remover el botón
+            const buttonElement = turnoElement.querySelector('.btn-completar');
+            if (buttonElement) {
+              buttonElement.remove();
+            }
+            
+            // Agregar clase de completado
+            turnoElement.classList.add('completed-fade');
+            turnoElement.setAttribute('data-status', 'completed');
+            
+            // Actualizar contadores
+            setTimeout(() => {
+              cargarTurnosHoy();
+            }, 300);
+          }
+          
+          // Mostrar notificación
+          mostrarNotificacion('✅ Turno marcado como completado', 'success');
+          
+        } catch (error) {
+          console.error('Error:', error);
+          mostrarNotificacion('❌ Error al marcar el turno', 'error');
+        }
+      };
+      
+      // Función para mostrar notificaciones
+      function mostrarNotificacion(mensaje, tipo = 'success') {
+        // Si ya existe una notificación, quitarla
+        const notificacionExistente = document.querySelector('.notificacion-flotante');
+        if (notificacionExistente) {
+          notificacionExistente.remove();
+        }
+        
+        const notificacion = document.createElement('div');
+        notificacion.className = 'notificacion-flotante';
+        notificacion.textContent = mensaje;
+        notificacion.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${tipo === 'error' ? '#dc3545' : '#28a745'};
+          color: white;
+          padding: 15px 20px;
+          border-radius: 5px;
+          z-index: 10000;
+          animation: slideIn 0.3s ease;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        
+        document.body.appendChild(notificacion);
+        
+        setTimeout(() => {
+          notificacion.style.animation = 'slideOut 0.3s ease';
+          setTimeout(() => {
+            if (notificacion.parentNode) {
+              notificacion.parentNode.removeChild(notificacion);
+            }
+          }, 300);
+        }, 3000);
+      }
+      
+      // Agregar estilos de animación
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .filter-btn {
+          opacity: 0.7;
+          transition: opacity 0.3s;
+        }
+        
+        .filter-btn.active {
+          opacity: 1;
+          box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Filtros
+      let filtroActual = 'all';
+      
+      function aplicarFiltro() {
+        const turnos = document.querySelectorAll('.turno-card');
+        turnos.forEach(turno => {
+          const status = turno.getAttribute('data-status');
+          
+          switch (filtroActual) {
+            case 'all':
+              turno.style.display = 'block';
+              break;
+            case 'pending':
+              turno.style.display = status === 'pending' ? 'block' : 'none';
+              break;
+            case 'completed':
+              turno.style.display = status === 'completed' ? 'block' : 'none';
+              break;
+          }
+        });
+        
+        // Actualizar botones de filtro
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        document.getElementById(`filter-${filtroActual}`).classList.add('active');
+      }
+      
+      // Event listeners para filtros
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          filtroActual = this.id.replace('filter-', '');
+          aplicarFiltro();
+        });
+      });
+      
+      // Event listener para botón actualizar
+      const refreshBtn = document.getElementById('refreshTodayBtn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', cargarTurnosHoy);
+      }
+      
+      // Event listener para botón exportar
+      const exportBtn = document.getElementById('exportTodayBtn');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+          // Implementar exportación si es necesario
+          mostrarNotificacion('📊 Función de exportación en desarrollo', 'info');
+        });
+      }
+      
+      // Cargar turnos cuando se muestre la sección admin
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'hidden') {
+            if (!document.getElementById('adminSection').hidden) {
+              cargarTurnosHoy();
+              
+              // Auto-refrescar cada 2 minutos
+              clearInterval(window.turnosInterval);
+              window.turnosInterval = setInterval(cargarTurnosHoy, 120000);
+            } else {
+              clearInterval(window.turnosInterval);
+            }
+          }
+        });
+      });
+      
+      const adminSection = document.getElementById('adminSection');
+      if (adminSection) {
+        observer.observe(adminSection, { attributes: true });
+      }
+      
+      // También cargar cuando se presione el botón "Actualizar Todo"
+      const refreshAllBtn = document.getElementById('refreshDataBtn');
+      if (refreshAllBtn) {
+        refreshAllBtn.addEventListener('click', cargarTurnosHoy);
+      }
+    });
   </script>
 </body>
 </html>
