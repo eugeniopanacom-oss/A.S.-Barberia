@@ -5,9 +5,9 @@ const ADMIN_GAS_URL = window.GAS_URL || 'https://athjkugyucogikjlwxbz.supabase.c
 const ADMIN_SUPA_KEY = window.SUPA_KEY || 'sb_publishable_JE1Toit6Fr-BPDtCbRrlpA_Tr94QgAv';
 
 // ==============================
-// 1. ELEMENTOS DEL DOM
+// 1. ELEMENTOS DEL DOM (RENOMBRADO PARA EVITAR CONFLICTO)
 // ==============================
-const DOM = {
+const ADMIN_DOM = {
     loadBtn: document.getElementById('loadMetrics'),
     metricsDiv: document.getElementById('metrics'),
     todayList: document.getElementById('todayList'),
@@ -290,13 +290,13 @@ const OffersModule = {
      * Inicializa el formulario de ofertas
      */
     initForm: function() {
-        if (!DOM.offerForm) return;
+        if (!ADMIN_DOM.offerForm) return;
         
         const now = new Date();
         const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         const defaultDate = tomorrow.toISOString().split('T')[0];
         
-        DOM.offerForm.innerHTML = `
+        ADMIN_DOM.offerForm.innerHTML = `
             <div class="admin-form-section">
                 <h3>🎁 Publicar Nueva Oferta</h3>
                 
@@ -337,7 +337,7 @@ const OffersModule = {
             </div>
         `;
         
-        DOM.offerForm.onsubmit = this.handleSubmit.bind(this);
+        ADMIN_DOM.offerForm.onsubmit = this.handleSubmit.bind(this);
     },
     
     /**
@@ -451,8 +451,8 @@ const OffersModule = {
      * Reinicia el formulario
      */
     resetForm: function() {
-        if (DOM.offerForm) {
-            DOM.offerForm.reset();
+        if (ADMIN_DOM.offerForm) {
+            ADMIN_DOM.offerForm.reset();
         }
     },
     
@@ -484,10 +484,10 @@ const MetricsModule = {
      * Carga las métricas del día actual
      */
     loadTodayMetrics: async function() {
-        if (!DOM.metricsDiv) return;
+        if (!ADMIN_DOM.metricsDiv) return;
         
         try {
-            DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
+            ADMIN_DOM.metricsDiv.innerHTML = '<div class="loading">Cargando métricas...</div>';
             
             const today = new Date().toISOString().split('T')[0];
             const endpoint = `${ADMIN_GAS_URL}/bookings?date=eq.${today}&select=*,services(name,price)`;
@@ -504,7 +504,7 @@ const MetricsModule = {
             
         } catch (error) {
             console.error('Error cargando métricas:', error);
-            DOM.metricsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            ADMIN_DOM.metricsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
         }
     },
     
@@ -522,7 +522,7 @@ const MetricsModule = {
             return sum + (booking.services?.price || 0);
         }, 0);
         
-        DOM.metricsDiv.innerHTML = `
+        ADMIN_DOM.metricsDiv.innerHTML = `
             <div class="metrics-grid">
                 <div class="metric-card">
                     <h4>📅 Turnos Hoy</h4>
@@ -548,10 +548,10 @@ const MetricsModule = {
      * Muestra la lista de turnos de hoy
      */
     displayTodayList: function(bookings) {
-        if (!DOM.todayList) return;
+        if (!ADMIN_DOM.todayList) return;
         
         if (bookings.length === 0) {
-            DOM.todayList.innerHTML = '<p class="empty-state">No hay turnos para hoy</p>';
+            ADMIN_DOM.todayList.innerHTML = '<p class="empty-state">No hay turnos para hoy</p>';
             return;
         }
         
@@ -560,7 +560,7 @@ const MetricsModule = {
             a.time.localeCompare(b.time)
         );
         
-        DOM.todayList.innerHTML = sortedBookings.map(booking => `
+        ADMIN_DOM.todayList.innerHTML = sortedBookings.map(booking => `
             <div class="booking-item" data-status="${booking.status}">
                 <div class="booking-time">${booking.time}</div>
                 <div class="booking-details">
@@ -588,9 +588,9 @@ const PricesModule = {
      * Inicializa el formulario de precios
      */
     initForm: function() {
-        if (!DOM.priceForm) return;
+        if (!ADMIN_DOM.priceForm) return;
         
-        DOM.priceForm.onsubmit = this.handleSubmit.bind(this);
+        ADMIN_DOM.priceForm.onsubmit = this.handleSubmit.bind(this);
     },
     
     /**
@@ -610,7 +610,7 @@ const PricesModule = {
             await this.savePrice(serviceName, servicePrice);
             
             alert('✅ Precio guardado correctamente');
-            DOM.priceForm.reset();
+            ADMIN_DOM.priceForm.reset();
             
             // Recargar servicios si la función existe
             if (typeof window.reloadServices === 'function') {
@@ -720,8 +720,8 @@ const AdminUtils = {
      */
     setupEventListeners: function() {
         // Botón de carga manual
-        if (DOM.loadBtn) {
-            DOM.loadBtn.onclick = () => MetricsModule.loadTodayMetrics();
+        if (ADMIN_DOM.loadBtn) {
+            ADMIN_DOM.loadBtn.onclick = () => MetricsModule.loadTodayMetrics();
         }
         
         // Eventos personalizados
@@ -755,7 +755,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 Admin.js inicializando...');
     
     // Verificar elementos críticos
-    if (!DOM.checkElements()) {
+    if (!ADMIN_DOM.checkElements()) {
         console.warn('⚠️ Algunos elementos del admin no se encontraron');
     }
     
@@ -767,7 +767,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Crear/verificar sección de herramientas administrativas
-    DOM.createAdminToolsSection();
+    ADMIN_DOM.createAdminToolsSection();
     
     // Configurar eventos de herramientas
     AdminToolsModule.setupEventListeners();
